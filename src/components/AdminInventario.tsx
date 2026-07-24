@@ -466,10 +466,10 @@ export default function AdminInventario() {
                           {fmtFecha(m.movimientoCreadoEn)}
                         </td>
                         <td className="px-4 py-3 font-semibold text-sanpedro-dark">
-                          {m.ingredientes?.ingredienteNombre ?? '—'}
-                          {m.ingredientes?.ingredienteUnidad && (
+                          {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
+                          {m.ingredientes?.[0]?.ingredienteUnidad && (
                             <span className="ml-1 text-xs text-gray-400 font-normal">
-                              ({m.ingredientes.ingredienteUnidad})
+                              ({m.ingredientes[0]?.ingredienteUnidad})
                             </span>
                           )}
                         </td>
@@ -481,7 +481,7 @@ export default function AdminInventario() {
                         <td className={`px-4 py-3 text-right font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
                           {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{m.perfiles?.perfilNombre ?? '—'}</td>
+                        <td className="px-4 py-3 text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</td>
                         <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>
                           {m.movimientoNota ?? '—'}
                         </td>

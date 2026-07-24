@@ -9,7 +9,7 @@ type MenuItemUI = Platillo | PlatilloAgrupadoUI;
 type DetallePedido = {
   detallePedidoCantidad: number;
   detallePedidoPrecioUnitario: number;
-  platillos: { platilloNombre: string } | null;
+  platillos: { platilloNombre: string }[];
 };
 
 type PedidoConDetalle = {
@@ -680,7 +680,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                     <ul className="text-sm text-stone-600 space-y-1.5 mb-4 border-t border-stone-100 pt-3">
                       {p.detallesPedido.map((d, i) => (
                         <li key={i} className="flex justify-between">
-                          <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                          <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                           <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                         </li>
                       ))}
@@ -776,7 +776,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                           <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                             {lineas.map((d, i) => (
                               <li key={i} className="flex justify-between">
-                                <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                                <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                                 <span className="text-stone-400 text-xs self-end ml-4">
                                   ${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}
                                 </span>
@@ -876,7 +876,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                           {p.detallesPedido.map((d, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                              <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                               <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                             </li>
                           ))}

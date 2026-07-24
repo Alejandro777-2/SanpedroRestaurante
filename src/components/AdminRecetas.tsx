@@ -85,17 +85,17 @@ export default function AdminRecetas() {
 
   // Por Ingrediente: compute in/out lists when ingredient selected
   const platillosConIng = ingSelId
-    ? platillos.filter(p => p.recetas.some(r => r.ingredientes?.ingredienteId === ingSelId))
+    ? platillos.filter(p => p.recetas.some(r => r.ingredientes?.[0]?.ingredienteId === ingSelId))
     : [];
   const platillosSinIng = ingSelId
-    ? platillos.filter(p => !p.recetas.some(r => r.ingredientes?.ingredienteId === ingSelId))
+    ? platillos.filter(p => !p.recetas.some(r => r.ingredientes?.[0]?.ingredienteId === ingSelId))
         .filter(p => !q || p.platilloNombre.toLowerCase().includes(q))
     : [];
 
   function ingDisponibles(platilloId: string): IngredienteBase[] {
     const p = platillos.find(pl => pl.platilloId === platilloId);
     return ingredientes.filter(
-      ing => !p?.recetas.some(r => r.ingredientes?.ingredienteId === ing.ingredienteId)
+      ing => !p?.recetas.some(r => r.ingredientes?.[0]?.ingredienteId === ing.ingredienteId)
     );
   }
 
@@ -108,7 +108,7 @@ export default function AdminRecetas() {
 
     // Verificar duplicado en memoria antes de ir a la DB
     const p = platillos.find(pl => pl.platilloId === platilloId);
-    if (p?.recetas.some(r => r.ingredientes?.ingredienteId === formIngId)) {
+    if (p?.recetas.some(r => r.ingredientes?.[0]?.ingredienteId === formIngId)) {
       setError('Este ingrediente ya está en la receta. Usa "Editar" para cambiar la cantidad.');
       return;
     }
@@ -330,7 +330,7 @@ export default function AdminRecetas() {
                           {platillo.recetas.map(r => (
                             <div key={r.recetaId} className="flex items-center gap-3 px-4 py-2.5">
                               <span className="text-sm text-sanpedro-dark flex-1">
-                                {r.ingredientes?.ingredienteNombre ?? '—'}
+                                {r.ingredientes?.[0]?.ingredienteNombre ?? '—'}
                               </span>
 
                               {editando?.recetaId === r.recetaId ? (
@@ -349,7 +349,7 @@ export default function AdminRecetas() {
                                     autoFocus
                                     className="w-20 px-2 py-1 text-sm border border-sanpedro-gold/40 rounded-lg focus:outline-none focus:ring-1 focus:ring-sanpedro-gold text-right"
                                   />
-                                  <span className="text-xs text-gray-400">{r.ingredientes?.ingredienteUnidad}</span>
+                                  <span className="text-xs text-gray-400">{r.ingredientes?.[0]?.ingredienteUnidad}</span>
                                   <button
                                     onClick={() => void handleGuardarEdicion()}
                                     disabled={guardando}
@@ -366,7 +366,7 @@ export default function AdminRecetas() {
                                 /* Visualización normal */
                                 <div className="flex items-center gap-2 shrink-0">
                                   <span className="text-sm font-semibold text-sanpedro-wood text-right">
-                                    {r.recetaCantidad} <span className="font-normal text-gray-400">{r.ingredientes?.ingredienteUnidad}</span>
+                                    {r.recetaCantidad} <span className="font-normal text-gray-400">{r.ingredientes?.[0]?.ingredienteUnidad}</span>
                                   </span>
                                   <button
                                     onClick={() => setEditando({ recetaId: r.recetaId, valor: String(r.recetaCantidad) })}
@@ -489,13 +489,13 @@ export default function AdminRecetas() {
                 ) : (
                   <div className="divide-y divide-sanpedro-gold/10">
                     {platillosConIng.map(p => {
-                      const r = p.recetas.find(rx => rx.ingredientes?.ingredienteId === ingSelId);
+                      const r = p.recetas.find(rx => rx.ingredientes?.[0]?.ingredienteId === ingSelId);
                       return (
                         <div key={p.platilloId} className="flex items-center gap-3 px-4 py-2.5">
                           <span className="text-sm text-sanpedro-dark flex-1">{p.platilloNombre}</span>
                           <span className="text-xs text-gray-400">{p.platilloCategoria}</span>
                           <span className="text-sm font-semibold text-sanpedro-wood">
-                            {r?.recetaCantidad} <span className="font-normal text-gray-400">{r?.ingredientes?.ingredienteUnidad}</span>
+                            {r?.recetaCantidad} <span className="font-normal text-gray-400">{r?.ingredientes?.[0]?.ingredienteUnidad}</span>
                           </span>
                         </div>
                       );
