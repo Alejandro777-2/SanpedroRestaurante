@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sanpedro-gold:       #D4AF37;
+  --color-sanpedro-gold-dark:  #AA820A;
+  --color-sanpedro-wood:       #3E2723;
+  --color-sanpedro-wood-light: #F5EBE6;
+  --color-sanpedro-dark:       #1A1A1A;
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+}
+
+body {
+  background-color: #FAFAF6;
+  overflow-x: hidden;
+}
+
+/* Unlayered = beats Tailwind utilities; prevents iOS auto-zoom on input focus */
+input:not([type=checkbox]):not([type=radio]),
+select,
+textarea {
+  font-size: 1rem;
+}
