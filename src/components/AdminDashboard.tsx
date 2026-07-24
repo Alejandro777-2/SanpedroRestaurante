@@ -31,14 +31,14 @@ type DetallePedidoRaw = {
   detallePedidoPlatilloId: string;
   detallePedidoCantidad: number;
   detallePedidoPrecioUnitario: number;
-  platillos: { platilloNombre: string; platilloCategoria: string }[];
+  platillos: { platilloNombre: string; platilloCategoria: string } | null;
 };
 
 type PedidoRaw = {
   pedidoId: string;
   pedidoTotal: number;
   pedidoCreadoEn: string;
-  perfiles: { perfilNombre: string }[];
+  perfiles: { perfilNombre: string } | null;
   detallesPedido: DetallePedidoRaw[];
 };
 
@@ -59,7 +59,7 @@ function computarMetricas(pedidos: PedidoRaw[]) {
   const catMap = new Map<string, { unidadesVendidas: number; ingresoTotal: number }>();
   for (const p of pedidos) {
     for (const d of p.detallesPedido) {
-      const cat  = d.platillos?.[0]?.platilloCategoria ?? 'Sin categoría';
+      const cat  = d.platillos?.platilloCategoria ?? 'Sin categoría';
       const prev = catMap.get(cat) ?? { unidadesVendidas: 0, ingresoTotal: 0 };
       catMap.set(cat, {
         unidadesVendidas: prev.unidadesVendidas + d.detallePedidoCantidad,
@@ -87,8 +87,8 @@ function computarMetricas(pedidos: PedidoRaw[]) {
   for (const p of pedidos) {
     for (const d of p.detallesPedido) {
       const id     = d.detallePedidoPlatilloId;
-      const nombre = d.platillos?.[0]?.platilloNombre ?? id;
-      const cat    = d.platillos?.[0]?.platilloCategoria ?? '—';
+      const nombre = d.platillos?.platilloNombre ?? id;
+      const cat    = d.platillos?.platilloCategoria ?? '—';
       const prev   = platMap.get(id) ?? { platilloId: id, platilloNombre: nombre, platilloCategoria: cat, unidadesVendidas: 0, ingresoTotal: 0 };
       platMap.set(id, {
         ...prev,
@@ -115,7 +115,7 @@ function computarMetricas(pedidos: PedidoRaw[]) {
   // Por Mesero
   const meseroMap = new Map<string, { perfilNombre: string; numeroPedidos: number; ingresoTotal: number }>();
   for (const p of pedidos) {
-    const nombre = p.perfiles?.[0]?.perfilNombre ?? 'Sin asignar';
+    const nombre = p.perfiles?.perfilNombre ?? 'Sin asignar';
     const prev   = meseroMap.get(nombre) ?? { perfilNombre: nombre, numeroPedidos: 0, ingresoTotal: 0 };
     meseroMap.set(nombre, { ...prev, numeroPedidos: prev.numeroPedidos + 1, ingresoTotal: prev.ingresoTotal + p.pedidoTotal });
   }

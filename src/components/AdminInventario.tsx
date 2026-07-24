@@ -252,56 +252,77 @@ export default function AdminInventario() {
               <p className="text-gray-400 text-sm">No hay ingredientes registrados.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                      {['Ingrediente', 'Unidad', 'Stock Real', 'Comprometido', 'Disponible', 'Mínimo', 'Acciones'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 bg-white">
-                    {stock.map(s => {
-                      const enAlerta = s.stockDisponible <= s.ingredienteStockMin;
-                      return (
-                        <tr key={s.ingredienteId} className={`transition-colors ${enAlerta ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-stone-50'}`}>
-                          <td className="px-4 py-3 font-semibold text-sanpedro-dark">{s.ingredienteNombre}</td>
-                          <td className="px-4 py-3 text-gray-500">{s.ingredienteUnidad}</td>
-                          <td className="px-4 py-3 text-right font-bold text-sanpedro-dark">{s.stockReal}</td>
-                          <td className="px-4 py-3 text-right text-gray-500">{s.comprometido}</td>
-                          <td className={`px-4 py-3 text-right font-bold ${enAlerta ? 'text-red-600' : 'text-sanpedro-wood'}`}>
-                            {s.stockDisponible}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-400">{s.ingredienteStockMin}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => abrirEditar(s)}
-                                className="text-xs font-semibold text-sanpedro-wood hover:text-sanpedro-dark bg-sanpedro-wood-light hover:bg-sanpedro-gold/20 px-3 py-1 rounded-lg transition-colors"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={() => handleToggleActivo(s)}
-                                className={`text-xs font-semibold px-3 py-1 rounded-lg border transition-colors ${
-                                  s.ingredienteActivo
-                                    ? 'text-red-600 bg-red-50 hover:bg-red-100 border-red-200'
-                                    : 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200'
-                                }`}
-                              >
-                                {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <>
+              {/* Desktop: tabla */}
+              <div className="hidden md:block bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
+                        {['Ingrediente', 'Unidad', 'Stock Real', 'Comprometido', 'Disponible', 'Mínimo', 'Acciones'].map(h => (
+                          <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 bg-white">
+                      {stock.map(s => {
+                        const enAlerta = s.stockDisponible <= s.ingredienteStockMin;
+                        return (
+                          <tr key={s.ingredienteId} className={`transition-colors ${enAlerta ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-stone-50'}`}>
+                            <td className="px-4 py-3 font-semibold text-sanpedro-dark">{s.ingredienteNombre}</td>
+                            <td className="px-4 py-3 text-gray-500">{s.ingredienteUnidad}</td>
+                            <td className="px-4 py-3 text-right font-bold text-sanpedro-dark">{s.stockReal}</td>
+                            <td className="px-4 py-3 text-right text-gray-500">{s.comprometido}</td>
+                            <td className={`px-4 py-3 text-right font-bold ${enAlerta ? 'text-red-600' : 'text-sanpedro-wood'}`}>
+                              {s.stockDisponible}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-400">{s.ingredienteStockMin}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <button onClick={() => abrirEditar(s)} className="text-xs font-semibold text-sanpedro-wood hover:text-sanpedro-dark bg-sanpedro-wood-light hover:bg-sanpedro-gold/20 px-3 py-1 rounded-lg transition-colors">Editar</button>
+                                <button onClick={() => handleToggleActivo(s)} className={`text-xs font-semibold px-3 py-1 rounded-lg border transition-colors ${s.ingredienteActivo ? 'text-red-600 bg-red-50 hover:bg-red-100 border-red-200' : 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200'}`}>
+                                  {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              {/* Móvil: tarjetas */}
+              <div className="md:hidden space-y-3">
+                {stock.map(s => {
+                  const enAlerta = s.stockDisponible <= s.ingredienteStockMin;
+                  return (
+                    <div key={s.ingredienteId} className={`bg-white rounded-xl border border-stone-200 p-4 shadow-sm ${enAlerta ? 'border-l-4 border-l-red-500' : 'border-t-[3px] border-t-sanpedro-gold'}`}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <p className="font-semibold text-sanpedro-dark">{s.ingredienteNombre}</p>
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400 mt-0.5">{s.ingredienteUnidad}</p>
+                        </div>
+                        {enAlerta && <span className="shrink-0 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Stock bajo</span>}
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Stock Real</p><p className="font-bold text-sanpedro-dark">{s.stockReal}</p></div>
+                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Comprometido</p><p className="text-stone-500">{s.comprometido}</p></div>
+                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Disponible</p><p className={`font-bold ${enAlerta ? 'text-red-600' : 'text-sanpedro-wood'}`}>{s.stockDisponible}</p></div>
+                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Mínimo</p><p className="text-stone-400">{s.ingredienteStockMin}</p></div>
+                      </div>
+                      <div className="flex gap-2 pt-3 border-t border-stone-100">
+                        <button onClick={() => abrirEditar(s)} className="flex-1 text-xs font-semibold text-sanpedro-wood bg-sanpedro-wood-light hover:bg-sanpedro-gold/20 px-3 py-2.5 rounded-lg min-h-[44px] transition-colors">Editar</button>
+                        <button onClick={() => handleToggleActivo(s)} className={`flex-1 text-xs font-semibold px-3 py-2.5 rounded-lg border min-h-[44px] transition-colors ${s.ingredienteActivo ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' : 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'}`}>
+                          {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -449,48 +470,88 @@ export default function AdminInventario() {
               <p className="text-gray-400 text-sm">Sin movimientos para los filtros seleccionados.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                      {['Fecha/Hora', 'Ingrediente', 'Tipo', 'Cantidad', 'Usuario', 'Nota'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 bg-white">
-                    {movimientos.map(m => (
-                      <tr key={m.movimientoId} className="hover:bg-stone-50 transition-colors">
-                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                          {fmtFecha(m.movimientoCreadoEn)}
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-sanpedro-dark">
-                          {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
-                          {m.ingredientes?.[0]?.ingredienteUnidad && (
-                            <span className="ml-1 text-xs text-gray-400 font-normal">
-                              ({m.ingredientes[0]?.ingredienteUnidad})
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${TIPO_CLASE[m.movimientoTipo] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {TIPO_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
-                          </span>
-                        </td>
-                        <td className={`px-4 py-3 text-right font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
-                          {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</td>
-                        <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>
-                          {m.movimientoNota ?? '—'}
-                        </td>
+            <>
+              {/* Desktop: tabla */}
+              <div className="hidden md:block bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
+                        {['Fecha/Hora', 'Ingrediente', 'Tipo', 'Cantidad', 'Usuario', 'Nota'].map(h => (
+                          <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 bg-white">
+                      {movimientos.map(m => (
+                        <tr key={m.movimientoId} className="hover:bg-stone-50 transition-colors">
+                          <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(m.movimientoCreadoEn)}</td>
+                          <td className="px-4 py-3 font-semibold text-sanpedro-dark">
+                            {m.ingredientes?.ingredienteNombre ?? '—'}
+                            {m.ingredientes?.ingredienteUnidad && (
+                              <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes.ingredienteUnidad})</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${TIPO_CLASE[m.movimientoTipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {TIPO_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
+                            </span>
+                          </td>
+                          <td className={`px-4 py-3 text-right font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
+                            {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{m.perfiles?.perfilNombre ?? '—'}</td>
+                          <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>{m.movimientoNota ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              {/* Móvil: tarjetas */}
+              <div className="md:hidden space-y-3">
+                {movimientos.map(m => (
+                  <div key={m.movimientoId} className="bg-white rounded-xl border border-stone-200 border-t-[3px] border-t-sanpedro-gold p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <p className="font-semibold text-sanpedro-dark">
+                          {m.ingredientes?.ingredienteNombre ?? '—'}
+                          {m.ingredientes?.ingredienteUnidad && (
+                            <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes.ingredienteUnidad})</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 px-2 py-0.5 text-xs font-bold rounded-full ${TIPO_CLASE[m.movimientoTipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {TIPO_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-stone-100 pt-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Fecha</p>
+                        <p className="text-xs text-gray-500">{fmtFecha(m.movimientoCreadoEn)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Cantidad</p>
+                        <p className={`font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
+                          {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Usuario</p>
+                        <p className="text-xs text-gray-600">{m.perfiles?.perfilNombre ?? '—'}</p>
+                      </div>
+                      {m.movimientoNota && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Nota</p>
+                          <p className="text-xs text-gray-400 truncate">{m.movimientoNota}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

@@ -33,8 +33,8 @@ export type MovimientoConDetalle = {
   movimientoCantidad: number;
   movimientoNota: string | null;
   movimientoCreadoEn: string;
-  ingredientes: { ingredienteNombre: string; ingredienteUnidad: string }[];
-  perfiles: { perfilNombre: string }[];
+  ingredientes: { ingredienteNombre: string; ingredienteUnidad: string } | null;
+  perfiles: { perfilNombre: string } | null;
 };
 
 // ── Consultas ─────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export type RecetaLinea = {
     ingredienteId: string;
     ingredienteNombre: string;
     ingredienteUnidad: string;
-  }[];
+  } | null;
 };
 
 export type PlatilloConReceta = {

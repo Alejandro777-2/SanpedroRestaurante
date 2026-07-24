@@ -58,7 +58,8 @@ function AppInterna() {
             onClick={cerrarSesion}
             className="text-xs text-gray-400 hover:text-white font-semibold transition-colors px-2 sm:px-3 py-1.5 rounded-lg hover:bg-white/10 whitespace-nowrap"
           >
-            Cerrar sesión
+            <span className="sm:hidden">Salir</span>
+            <span className="hidden sm:inline">Cerrar sesión</span>
           </button>
         </div>
       </nav>

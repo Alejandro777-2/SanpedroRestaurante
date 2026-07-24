@@ -24,3 +24,32 @@ select,
 textarea {
   font-size: 1rem;
 }
+
+/* ── Comanda de cocina ────────────────────────────────────────────────────── */
+/* En pantalla: oculta (vive en body vía Portal, fuera de #root) */
+#comanda-print {
+  display: none;
+}
+
+/* Papel térmico: ancho fijo de rollo, alto automático (sin página en blanco) */
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
+@media print {
+  /* Ocultar toda la app; la comanda es hermana de #root gracias al Portal */
+  #root { display: none !important; }
+
+  /* Mostrar solo la comanda */
+  #comanda-print {
+    display: block !important;
+    background: #fff;
+    color: #000;
+    margin: 0;
+    padding: 0;
+    /* Evitar cortes de página dentro de la tira */
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

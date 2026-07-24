@@ -5,6 +5,7 @@ export interface DatosPedido {
   mesa: string;
   clienteNombre?: string;
   meseroId?: string | null;
+  observacion?: string | null;
 }
 
 export async function confirmarPedido(
@@ -25,6 +26,7 @@ export async function confirmarPedido(
       pedidoMesa: datos.mesa,
       pedidoTotal: Number(total.toFixed(2)),
       pedidoMeseroId: datos.meseroId ?? null,
+      pedidoObservacion: datos.observacion ?? null,
     })
     .select('pedidoId')
     .single();

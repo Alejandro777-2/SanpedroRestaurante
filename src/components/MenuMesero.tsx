@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import { type Platillo, type LineaCarrito, type PlatilloAgrupadoUI } from '../types';
 import { confirmarPedido } from '../lib/confirmarPedido';
@@ -9,7 +10,18 @@ type MenuItemUI = Platillo | PlatilloAgrupadoUI;
 type DetallePedido = {
   detallePedidoCantidad: number;
   detallePedidoPrecioUnitario: number;
-  platillos: { platilloNombre: string }[];
+  platillos: {
+    platilloNombre: string;
+    recetas: { ingredientes: { ingredienteNombre: string } | null }[];
+  } | null;
+};
+
+type DetComanda = {
+  detallePedidoCantidad: number;
+  platillos: {
+    platilloNombre: string;
+    recetas: { ingredientes: { ingredienteNombre: string } | null }[];
+  } | null;
 };
 
 type PedidoConDetalle = {
@@ -21,6 +33,7 @@ type PedidoConDetalle = {
   pedidoCreadoEn: string;
   pedidoMetodoPago: string | null;
   pedidoPagadoEn: string | null;
+  pedidoObservacion: string | null;
   detallesPedido: DetallePedido[];
 };
 
@@ -33,8 +46,16 @@ type PedidoCobro = {
   pedidoClienteNombre: string | null;
 };
 
-const PEDIDO_COLS = `pedidoId, pedidoMesa, pedidoClienteNombre, pedidoTotal, pedidoEstado, pedidoCreadoEn, pedidoMetodoPago, pedidoPagadoEn,
-  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre ) )`;
+type ComandaData = {
+  pedidoId: string;
+  mesa: string;
+  hora: string;
+  observacion: string | null;
+  lineas: { cantidad: number; nombre: string; ingredientes: string[] }[];
+};
+
+const PEDIDO_COLS = `pedidoId, pedidoMesa, pedidoClienteNombre, pedidoTotal, pedidoEstado, pedidoCreadoEn, pedidoMetodoPago, pedidoPagadoEn, pedidoObservacion,
+  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) ) )`;
 
 const CATEGORIA_ICONOS: Record<string, string> = {
   'Desayunos':         '☕',
@@ -109,6 +130,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
   const [hibridoActivo, setHibridoActivo]   = useState<PlatilloAgrupadoUI | null>(null);
   const [mesa, setMesa]                     = useState('');
   const [clienteNombre, setClienteNombre]   = useState('');
+  const [observacion, setObservacion]       = useState('');
   const [guardando, setGuardando]           = useState(false);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
@@ -129,6 +151,17 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
   const [fechaDesde, setFechaDesde] = useState(() => fechaHoy());
   const [fechaHasta, setFechaHasta] = useState(() => fechaHoy());
   const [expandido, setExpandido]   = useState<string | null>(null);
+
+  // — Comanda impresión —
+  const [comandaPrint, setComandaPrint] = useState<ComandaData | null>(null);
+  const [printKey, setPrintKey]         = useState(0);
+
+  useEffect(() => { if (comandaPrint) window.print(); }, [printKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function imprimirComanda(data: ComandaData) {
+    setComandaPrint(data);
+    setPrintKey(k => k + 1);
+  }
 
   async function cargarPlatillos() {
     const { data } = await supabase
@@ -291,17 +324,35 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
     if (!mesa.trim()) { alert('Ingresa el número o nombre de la mesa.'); return; }
     setGuardando(true);
     try {
-      const { pedidoId } = await confirmarPedido(carrito, {
-        mesa: mesa.trim(),
+      const mesaActual        = mesa.trim();
+      const observacionActual = observacion.trim() || null;
+      const { pedidoId }      = await confirmarPedido(carrito, {
+        mesa: mesaActual,
         clienteNombre: clienteNombre.trim() || undefined,
+        observacion: observacionActual,
         meseroId,
       });
       setCarrito([]);
       setMesa('');
       setClienteNombre('');
+      setObservacion('');
       setCarritoAbierto(false);
       void cargarPendientes();
-      alert(`Comanda registrada ✔  (#${pedidoId.slice(0, 8)})`);
+      const { data: det } = await supabase
+        .from('detallesPedido')
+        .select('detallePedidoCantidad, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) )')
+        .eq('detallePedidoPedidoId', pedidoId);
+      imprimirComanda({
+        pedidoId,
+        mesa: mesaActual,
+        hora: new Intl.DateTimeFormat('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }).format(new Date()),
+        observacion: observacionActual,
+        lineas: ((det ?? []) as DetComanda[]).map(d => ({
+          cantidad: d.detallePedidoCantidad,
+          nombre: d.platillos?.platilloNombre ?? '—',
+          ingredientes: (d.platillos?.recetas ?? []).map(r => r.ingredientes?.ingredienteNombre).filter((n): n is string => Boolean(n)),
+        })),
+      });
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Error al guardar la comanda.');
     } finally {
@@ -438,6 +489,13 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
         placeholder="Nombre del cliente (opcional)"
         className="w-full px-4 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-sanpedro-gold/40 focus:border-sanpedro-gold"
       />
+      <textarea
+        value={observacion}
+        onChange={e => setObservacion(e.target.value)}
+        placeholder="Observación (opcional) — ej. Sin ensalada, Bien cocido"
+        rows={2}
+        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-sanpedro-gold/40 focus:border-sanpedro-gold resize-none min-h-[52px]"
+      />
       <button
         onClick={handleConfirmar}
         disabled={guardando}
@@ -451,7 +509,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
   return (
     <div>
       {/* ══ Pestañas ══ */}
-      <nav className="bg-white border-b border-stone-200 flex items-center overflow-x-auto">
+      <nav className="hidden md:flex bg-white border-b border-stone-200 items-center overflow-x-auto">
         {(['menu', 'cola', 'cobrar', 'historial'] as const).map(t => {
           const labels = { menu: 'Menú', cola: 'En cola', cobrar: 'Por Cobrar', historial: 'Historial' };
           const active = tab === t;
@@ -561,14 +619,14 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                   <p className="text-stone-400 text-sm">Sin resultados para "{busquedaMenu}".</p>
                 </div>
               ) : (
-                <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-24 md:pb-6">
+                <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-36 md:pb-6">
                   {resultadosBusqueda.map(item => renderItem(item))}
                 </div>
               )
 
             ) : categoriaActiva === null ? (
               /* ── Nivel 1 — Mosaico de categorías ── */
-              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-4 sm:p-6 pb-20 md:pb-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {categoriasOrdenadas.map(cat => (
                   <button
                     key={cat}
@@ -586,7 +644,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
 
             ) : (
               /* ── Nivel 2 — Platillos de la categoría ── */
-              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-24 md:pb-6">
+              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-36 md:pb-6">
                 {menuDeCat.map(item => renderItem(item))}
               </div>
             )}
@@ -609,7 +667,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
           {carrito.length > 0 && (
             <button
               onClick={() => setCarritoAbierto(true)}
-              className="fixed bottom-6 right-4 z-40 md:hidden bg-sanpedro-gold text-sanpedro-dark font-medium rounded-full shadow-xl flex items-center gap-2 px-5 min-h-[56px]"
+              className="fixed bottom-[76px] right-4 z-40 md:hidden bg-sanpedro-gold text-sanpedro-dark font-medium rounded-full shadow-xl flex items-center gap-2 px-5 min-h-[56px]"
             >
               🛒 <span>{totalItems}</span>
               <span className="text-sanpedro-dark/50">·</span>
@@ -655,7 +713,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
 
       {/* ══ En cola ══ */}
       {tab === 'cola' && (
-        <div className="p-4 sm:p-6 bg-[#FAFAF6] min-h-screen">
+        <div className="p-4 sm:p-6 pb-20 md:pb-6 bg-[#FAFAF6] min-h-screen">
           {pendientes.length === 0 ? (
             <div className="flex items-center justify-center h-40">
               <p className="text-stone-400 text-sm">No hay pedidos pendientes.</p>
@@ -680,7 +738,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                     <ul className="text-sm text-stone-600 space-y-1.5 mb-4 border-t border-stone-100 pt-3">
                       {p.detallesPedido.map((d, i) => (
                         <li key={i} className="flex justify-between">
-                          <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                          <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
                           <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                         </li>
                       ))}
@@ -696,6 +754,23 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         className="flex-1 bg-sanpedro-gold hover:bg-sanpedro-gold-dark text-sanpedro-dark font-medium text-sm py-3 rounded-lg transition-colors duration-200 min-h-[44px]"
                       >
                         Marcar entregado
+                      </button>
+                      <button
+                        onClick={() => imprimirComanda({
+                          pedidoId: p.pedidoId,
+                          mesa: p.pedidoMesa ?? '—',
+                          hora: new Intl.DateTimeFormat('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }).format(new Date(p.pedidoCreadoEn)),
+                          observacion: p.pedidoObservacion,
+                          lineas: p.detallesPedido.map(d => ({
+                            cantidad: d.detallePedidoCantidad,
+                            nombre: d.platillos?.platilloNombre ?? '—',
+                            ingredientes: (d.platillos?.recetas ?? []).map(r => r.ingredientes?.ingredienteNombre).filter((n): n is string => Boolean(n)),
+                          })),
+                        })}
+                        className="px-4 py-3 rounded-lg text-sm font-medium text-sanpedro-wood border border-sanpedro-gold/40 hover:bg-sanpedro-gold/10 transition-colors duration-200 min-h-[44px]"
+                        title="Imprimir comanda"
+                      >
+                        🖨
                       </button>
                       <button
                         onClick={() => cancelarPedido(p.pedidoId)}
@@ -714,7 +789,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
 
       {/* ══ Por Cobrar ══ */}
       {tab === 'cobrar' && (
-        <div className="p-4 sm:p-6 bg-[#FAFAF6] min-h-screen">
+        <div className="p-4 sm:p-6 pb-20 md:pb-6 bg-[#FAFAF6] min-h-screen">
           {porCobrar.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 gap-1.5">
               <p className="text-stone-400 text-sm">Sin pedidos por cobrar.</p>
@@ -776,7 +851,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                           <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                             {lineas.map((d, i) => (
                               <li key={i} className="flex justify-between">
-                                <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                                <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
                                 <span className="text-stone-400 text-xs self-end ml-4">
                                   ${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}
                                 </span>
@@ -820,7 +895,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
 
       {/* ══ Historial ══ */}
       {tab === 'historial' && (
-        <div className="p-4 sm:p-6 bg-[#FAFAF6] min-h-screen">
+        <div className="p-4 sm:p-6 pb-20 md:pb-6 bg-[#FAFAF6] min-h-screen">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-5 max-w-2xl mx-auto">
             <div className="flex items-center gap-2">
               <label className="text-[10px] uppercase tracking-[0.12em] text-stone-500 shrink-0">Desde</label>
@@ -876,7 +951,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                           {p.detallesPedido.map((d, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                              <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
                               <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                             </li>
                           ))}
@@ -935,6 +1010,79 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
           </div>
         </div>
       )}
+
+      {/* ══ Comanda de cocina — portal directo a body; #root se oculta en print ══ */}
+      {createPortal(
+        <div id="comanda-print" aria-hidden={!comandaPrint}>
+        {comandaPrint && (
+          <div style={{ fontFamily: "'Courier New', Courier, monospace", width: '72mm', padding: '3mm 3mm 6mm', color: '#000', background: '#fff' }}>
+            <p style={{ fontSize: '12pt', fontWeight: 900, textAlign: 'center', letterSpacing: '0.1em', margin: '0 0 2mm' }}>
+              COMANDA COCINA
+            </p>
+            <p style={{ fontSize: '26pt', fontWeight: 900, textAlign: 'center', lineHeight: 1.1, margin: '0 0 2mm' }}>
+              Mesa {comandaPrint.mesa}
+            </p>
+            <p style={{ fontSize: '9pt', textAlign: 'center', margin: '0 0 3mm', color: '#555' }}>
+              {comandaPrint.hora} — #{comandaPrint.pedidoId.slice(0, 8)}
+            </p>
+            <div style={{ borderTop: '2px solid #000', margin: '0 0 3mm' }} />
+            {comandaPrint.lineas.map((l, i) => (
+              <div key={i} style={{ marginBottom: '3mm' }}>
+                <p style={{ fontSize: '14pt', fontWeight: 700, margin: '0 0 1mm', lineHeight: 1.3 }}>
+                  {l.cantidad}×&nbsp;{l.nombre}
+                </p>
+                {l.ingredientes.length > 0 && (
+                  <div style={{ paddingLeft: '4mm' }}>
+                    {l.ingredientes.map((ing, j) => (
+                      <p key={j} style={{ fontSize: '10pt', fontWeight: 400, margin: '0', lineHeight: 1.5 }}>- {ing}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {comandaPrint.observacion && (
+              <>
+                <div style={{ borderTop: '2px solid #000', margin: '3mm 0 2mm' }} />
+                <p style={{ fontSize: '12pt', fontWeight: 900, textAlign: 'center', margin: '0 0 1mm' }}>** OBSERVACIÓN **</p>
+                <p style={{ fontSize: '13pt', fontWeight: 700, textAlign: 'center', margin: '0 0 2mm', whiteSpace: 'pre-wrap' }}>{comandaPrint.observacion}</p>
+                <div style={{ borderTop: '2px solid #000', marginBottom: '2mm' }} />
+              </>
+            )}
+            <div style={{ borderTop: '1px dashed #000', marginTop: '4mm' }} />
+          </div>
+        )}
+      </div>,
+        document.body
+      )}
+
+      {/* ══ Barra de navegación inferior — solo móvil ══ */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-stone-200 flex">
+        {(['menu', 'cola', 'cobrar', 'historial'] as const).map(id => {
+          const ICONS:   Record<string, string> = { menu: '🍽', cola: '🔔', cobrar: '💳', historial: '📋' };
+          const LABELS:  Record<string, string> = { menu: 'Menú', cola: 'En Cola', cobrar: 'Cobrar', historial: 'Historial' };
+          const BADGES:  Record<string, number> = { menu: 0, cola: pendientes.length, cobrar: porCobrar.length, historial: 0 };
+          const badge  = BADGES[id];
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] relative transition-colors duration-200 ${active ? 'text-sanpedro-gold' : 'text-stone-400'}`}
+            >
+              <span className="text-xl leading-none relative">
+                {ICONS[id]}
+                {badge > 0 && (
+                  <span className={`absolute -top-1 -right-2 flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${id === 'cobrar' ? 'bg-amber-500 text-white' : 'bg-sanpedro-gold text-sanpedro-dark'}`}>
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] mt-1 font-medium">{LABELS[id]}</span>
+              {active && <span className="absolute bottom-0 inset-x-0 h-[2px] bg-sanpedro-gold" />}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

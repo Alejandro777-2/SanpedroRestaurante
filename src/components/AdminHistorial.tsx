@@ -10,7 +10,7 @@ type PedidoHistorial = {
   pedidoEstado: string;
   pedidoCreadoEn: string;
   pedidoMetodoPago: string | null;
-  perfiles: { perfilNombre: string }[];
+  perfiles: { perfilNombre: string } | null;
 };
 
 type Mesero = { perfilId: string; perfilNombre: string };
@@ -100,7 +100,7 @@ export default function AdminHistorial() {
             fmtFecha(p.pedidoCreadoEn),
             p.pedidoMesa ?? '',
             p.pedidoClienteNombre ?? '',
-            p.perfiles?.[0]?.perfilNombre ?? '',
+            p.perfiles?.perfilNombre ?? '',
             ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado,
             p.pedidoMetodoPago ?? '',
             p.pedidoTotal,
@@ -130,7 +130,7 @@ export default function AdminHistorial() {
             fmtFecha(p.pedidoCreadoEn),
             p.pedidoMesa ?? '—',
             p.pedidoClienteNombre ?? '—',
-            p.perfiles?.[0]?.perfilNombre ?? '—',
+            p.perfiles?.perfilNombre ?? '—',
             ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado,
             p.pedidoMetodoPago ?? '—',
             fmt$(p.pedidoTotal),
@@ -238,46 +238,91 @@ export default function AdminHistorial() {
           <p className="text-gray-400 text-sm">Sin pedidos para los filtros seleccionados.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                  {COLS.map(c => (
-                    <th key={c} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 bg-white">
-                {pedidos.map(p => (
-                  <tr key={p.pedidoId} className="hover:bg-sanpedro-wood-light/20 transition-colors">
-                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(p.pedidoCreadoEn)}</td>
-                    <td className="px-4 py-3 font-bold text-sanpedro-gold">{p.pedidoMesa ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.pedidoClienteNombre ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.perfiles?.[0]?.perfilNombre ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${ESTADO_CLASE[p.pedidoEstado] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-stone-500 capitalize whitespace-nowrap">{p.pedidoMetodoPago ?? '—'}</td>
-                    <td className="px-4 py-3 text-right font-bold text-sanpedro-wood whitespace-nowrap">{fmt$(p.pedidoTotal)}</td>
+        <>
+          {/* Desktop: tabla */}
+          <div className="hidden md:block bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
+                    {COLS.map(c => (
+                      <th key={c} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{c}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-sanpedro-wood/10">
-                  <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-sanpedro-wood uppercase tracking-wide">
-                    Total — {pedidos.length} pedido(s)
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-sanpedro-wood whitespace-nowrap">
-                    {fmt$(totalSuma)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-stone-100 bg-white">
+                  {pedidos.map(p => (
+                    <tr key={p.pedidoId} className="hover:bg-sanpedro-wood-light/20 transition-colors">
+                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(p.pedidoCreadoEn)}</td>
+                      <td className="px-4 py-3 font-bold text-sanpedro-gold">{p.pedidoMesa ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.pedidoClienteNombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.perfiles?.perfilNombre ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${ESTADO_CLASE[p.pedidoEstado] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-stone-500 capitalize whitespace-nowrap">{p.pedidoMetodoPago ?? '—'}</td>
+                      <td className="px-4 py-3 text-right font-bold text-sanpedro-wood whitespace-nowrap">{fmt$(p.pedidoTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-sanpedro-wood/10">
+                    <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-sanpedro-wood uppercase tracking-wide">
+                      Total — {pedidos.length} pedido(s)
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-sanpedro-wood whitespace-nowrap">
+                      {fmt$(totalSuma)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Móvil: tarjetas */}
+          <div className="md:hidden space-y-2">
+            {pedidos.map(p => (
+              <div key={p.pedidoId} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className="font-bold text-sanpedro-gold text-lg leading-tight">{p.pedidoMesa ?? '—'}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">{fmtFecha(p.pedidoCreadoEn)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sanpedro-wood">{fmt$(p.pedidoTotal)}</p>
+                    <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${ESTADO_CLASE[p.pedidoEstado] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-stone-100 pt-3">
+                  {p.pedidoClienteNombre && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Cliente</p>
+                      <p className="text-xs text-stone-500">{p.pedidoClienteNombre}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Mesero</p>
+                    <p className="text-xs text-stone-500">{p.perfiles?.perfilNombre ?? '—'}</p>
+                  </div>
+                  {p.pedidoMetodoPago && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Método</p>
+                      <p className="text-xs capitalize text-stone-500">{p.pedidoMetodoPago}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div className="bg-sanpedro-wood/10 rounded-xl px-4 py-3 flex justify-between items-center">
+              <span className="text-xs font-semibold text-sanpedro-wood uppercase tracking-wide">{pedidos.length} pedido(s)</span>
+              <span className="font-bold text-sanpedro-wood">{fmt$(totalSuma)}</span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
