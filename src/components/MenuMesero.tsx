@@ -10,10 +10,7 @@ type MenuItemUI = Platillo | PlatilloAgrupadoUI;
 type DetallePedido = {
   detallePedidoCantidad: number;
   detallePedidoPrecioUnitario: number;
-  platillos: {
-    platilloNombre: string;
-    recetas?: { ingredientes: { ingredienteNombre: string }[] }[];
-  }[];
+  platillos: { platilloNombre: string }[];
 };
 
 type DetComanda = {
@@ -55,7 +52,9 @@ type ComandaData = {
 };
 
 const PEDIDO_COLS = `pedidoId, pedidoMesa, pedidoClienteNombre, pedidoTotal, pedidoEstado, pedidoCreadoEn, pedidoMetodoPago, pedidoPagadoEn, pedidoObservacion,
-  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) ) )`;
+  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre ) )`;
+
+const COMANDA_DETALLE_COLS = 'detallePedidoCantidad, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) )';
 
 const CATEGORIA_ICONOS: Record<string, string> = {
   'Desayunos':         '☕',
@@ -340,7 +339,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
       void cargarPendientes();
       const { data: det } = await supabase
         .from('detallesPedido')
-        .select('detallePedidoCantidad, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) )')
+        .select(COMANDA_DETALLE_COLS)
         .eq('detallePedidoPedidoId', pedidoId);
       imprimirComanda({
         pedidoId,
@@ -371,6 +370,24 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
     await supabase.from('pedidos').update({ pedidoEstado: 'cancelado' }).eq('pedidoId', pedidoId);
     void cargarPendientes();
     void cargarHistorial();
+  }
+
+  async function reimprimir(p: PedidoConDetalle) {
+    const { data: det } = await supabase
+      .from('detallesPedido')
+      .select(COMANDA_DETALLE_COLS)
+      .eq('detallePedidoPedidoId', p.pedidoId);
+    imprimirComanda({
+      pedidoId: p.pedidoId,
+      mesa: p.pedidoMesa ?? '—',
+      hora: new Intl.DateTimeFormat('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }).format(new Date(p.pedidoCreadoEn)),
+      observacion: p.pedidoObservacion,
+      lineas: ((det ?? []) as DetComanda[]).map(d => ({
+        cantidad: d.detallePedidoCantidad,
+        nombre: d.platillos?.[0]?.platilloNombre ?? '—',
+        ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => (r.ingredientes ?? []).map(i => i.ingredienteNombre)),
+      })),
+    });
   }
 
   async function cobrarPedido(pedidoId: string, metodo: 'efectivo' | 'transferencia') {
@@ -756,17 +773,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         Marcar entregado
                       </button>
                       <button
-                        onClick={() => imprimirComanda({
-                          pedidoId: p.pedidoId,
-                          mesa: p.pedidoMesa ?? '—',
-                          hora: new Intl.DateTimeFormat('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }).format(new Date(p.pedidoCreadoEn)),
-                          observacion: p.pedidoObservacion,
-                          lineas: p.detallesPedido.map(d => ({
-                            cantidad: d.detallePedidoCantidad,
-                            nombre: d.platillos?.[0]?.platilloNombre ?? '—',
-                            ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => r.ingredientes.map(i => i.ingredienteNombre)),
-                          })),
-                        })}
+                        onClick={() => void reimprimir(p)}
                         className="px-4 py-3 rounded-lg text-sm font-medium text-sanpedro-wood border border-sanpedro-gold/40 hover:bg-sanpedro-gold/10 transition-colors duration-200 min-h-[44px]"
                         title="Imprimir comanda"
                       >
