@@ -487,9 +487,9 @@ export default function AdminInventario() {
                         <tr key={m.movimientoId} className="hover:bg-stone-50 transition-colors">
                           <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(m.movimientoCreadoEn)}</td>
                           <td className="px-4 py-3 font-semibold text-sanpedro-dark">
-                            {m.ingredientes?.ingredienteNombre ?? '—'}
-                            {m.ingredientes?.ingredienteUnidad && (
-                              <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes.ingredienteUnidad})</span>
+                            {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
+                            {m.ingredientes?.[0]?.ingredienteUnidad && (
+                              <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -500,7 +500,7 @@ export default function AdminInventario() {
                           <td className={`px-4 py-3 text-right font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
                             {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
                           </td>
-                          <td className="px-4 py-3 text-gray-600">{m.perfiles?.perfilNombre ?? '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</td>
                           <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>{m.movimientoNota ?? '—'}</td>
                         </tr>
                       ))}
@@ -516,9 +516,9 @@ export default function AdminInventario() {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
                         <p className="font-semibold text-sanpedro-dark">
-                          {m.ingredientes?.ingredienteNombre ?? '—'}
-                          {m.ingredientes?.ingredienteUnidad && (
-                            <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes.ingredienteUnidad})</span>
+                          {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
+                          {m.ingredientes?.[0]?.ingredienteUnidad && (
+                            <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
                           )}
                         </p>
                       </div>
@@ -539,7 +539,7 @@ export default function AdminInventario() {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Usuario</p>
-                        <p className="text-xs text-gray-600">{m.perfiles?.perfilNombre ?? '—'}</p>
+                        <p className="text-xs text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</p>
                       </div>
                       {m.movimientoNota && (
                         <div className="col-span-2">

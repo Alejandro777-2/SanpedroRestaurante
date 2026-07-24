@@ -10,7 +10,7 @@ type PedidoHistorial = {
   pedidoEstado: string;
   pedidoCreadoEn: string;
   pedidoMetodoPago: string | null;
-  perfiles: { perfilNombre: string } | null;
+  perfiles: { perfilNombre: string }[];
 };
 
 type Mesero = { perfilId: string; perfilNombre: string };
@@ -100,7 +100,7 @@ export default function AdminHistorial() {
             fmtFecha(p.pedidoCreadoEn),
             p.pedidoMesa ?? '',
             p.pedidoClienteNombre ?? '',
-            p.perfiles?.perfilNombre ?? '',
+            p.perfiles?.[0]?.perfilNombre ?? '',
             ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado,
             p.pedidoMetodoPago ?? '',
             p.pedidoTotal,
@@ -130,7 +130,7 @@ export default function AdminHistorial() {
             fmtFecha(p.pedidoCreadoEn),
             p.pedidoMesa ?? '—',
             p.pedidoClienteNombre ?? '—',
-            p.perfiles?.perfilNombre ?? '—',
+            p.perfiles?.[0]?.perfilNombre ?? '—',
             ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado,
             p.pedidoMetodoPago ?? '—',
             fmt$(p.pedidoTotal),
@@ -256,7 +256,7 @@ export default function AdminHistorial() {
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(p.pedidoCreadoEn)}</td>
                       <td className="px-4 py-3 font-bold text-sanpedro-gold">{p.pedidoMesa ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{p.pedidoClienteNombre ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.perfiles?.perfilNombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.perfiles?.[0]?.perfilNombre ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${ESTADO_CLASE[p.pedidoEstado] ?? 'bg-gray-100 text-gray-600'}`}>
                           {ESTADO_LABEL[p.pedidoEstado] ?? p.pedidoEstado}
@@ -306,7 +306,7 @@ export default function AdminHistorial() {
                   )}
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Mesero</p>
-                    <p className="text-xs text-stone-500">{p.perfiles?.perfilNombre ?? '—'}</p>
+                    <p className="text-xs text-stone-500">{p.perfiles?.[0]?.perfilNombre ?? '—'}</p>
                   </div>
                   {p.pedidoMetodoPago && (
                     <div>

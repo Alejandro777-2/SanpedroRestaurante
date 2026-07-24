@@ -12,16 +12,16 @@ type DetallePedido = {
   detallePedidoPrecioUnitario: number;
   platillos: {
     platilloNombre: string;
-    recetas: { ingredientes: { ingredienteNombre: string } | null }[];
-  } | null;
+    recetas?: { ingredientes: { ingredienteNombre: string }[] }[];
+  }[];
 };
 
 type DetComanda = {
   detallePedidoCantidad: number;
   platillos: {
     platilloNombre: string;
-    recetas: { ingredientes: { ingredienteNombre: string } | null }[];
-  } | null;
+    recetas: { ingredientes: { ingredienteNombre: string }[] }[];
+  }[];
 };
 
 type PedidoConDetalle = {
@@ -349,8 +349,8 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
         observacion: observacionActual,
         lineas: ((det ?? []) as DetComanda[]).map(d => ({
           cantidad: d.detallePedidoCantidad,
-          nombre: d.platillos?.platilloNombre ?? '—',
-          ingredientes: (d.platillos?.recetas ?? []).map(r => r.ingredientes?.ingredienteNombre).filter((n): n is string => Boolean(n)),
+          nombre: d.platillos?.[0]?.platilloNombre ?? '—',
+          ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => r.ingredientes.map(i => i.ingredienteNombre)),
         })),
       });
     } catch (e) {
@@ -738,7 +738,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                     <ul className="text-sm text-stone-600 space-y-1.5 mb-4 border-t border-stone-100 pt-3">
                       {p.detallesPedido.map((d, i) => (
                         <li key={i} className="flex justify-between">
-                          <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                          <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                           <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                         </li>
                       ))}
@@ -763,8 +763,8 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                           observacion: p.pedidoObservacion,
                           lineas: p.detallesPedido.map(d => ({
                             cantidad: d.detallePedidoCantidad,
-                            nombre: d.platillos?.platilloNombre ?? '—',
-                            ingredientes: (d.platillos?.recetas ?? []).map(r => r.ingredientes?.ingredienteNombre).filter((n): n is string => Boolean(n)),
+                            nombre: d.platillos?.[0]?.platilloNombre ?? '—',
+                            ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => r.ingredientes.map(i => i.ingredienteNombre)),
                           })),
                         })}
                         className="px-4 py-3 rounded-lg text-sm font-medium text-sanpedro-wood border border-sanpedro-gold/40 hover:bg-sanpedro-gold/10 transition-colors duration-200 min-h-[44px]"
@@ -851,7 +851,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                           <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                             {lineas.map((d, i) => (
                               <li key={i} className="flex justify-between">
-                                <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                                <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                                 <span className="text-stone-400 text-xs self-end ml-4">
                                   ${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}
                                 </span>
@@ -951,7 +951,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                           {p.detallesPedido.map((d, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{d.detallePedidoCantidad}× {d.platillos?.platilloNombre ?? '—'}</span>
+                              <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
                               <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                             </li>
                           ))}
