@@ -10,6 +10,7 @@ type MenuItemUI = Platillo | PlatilloAgrupadoUI;
 type DetComanda = {
   detallePedidoCantidad: number;
   detallePedidoPlatilloNombre: string | null;
+  detallePedidoPlatilloDescripcion: string | null;
   platillos: {
     recetas: { ingredientes: { ingredienteNombre: string }[] }[];
   }[];
@@ -42,13 +43,13 @@ type ComandaData = {
   mesa: string;
   hora: string;
   observacion: string | null;
-  lineas: { cantidad: number; nombre: string; ingredientes: string[] }[];
+  lineas: { cantidad: number; nombre: string; descripcion: string | null; ingredientes: string[] }[];
 };
 
 const PEDIDO_COLS = `pedidoId, pedidoMesa, pedidoClienteNombre, pedidoTotal, pedidoEstado, pedidoCreadoEn, pedidoMetodoPago, pedidoPagadoEn, pedidoObservacion,
   detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, detallePedidoPlatilloNombre )`;
 
-const COMANDA_DETALLE_COLS = 'detallePedidoCantidad, detallePedidoPlatilloNombre, platillos ( recetas ( ingredientes ( ingredienteNombre ) ) )';
+const COMANDA_DETALLE_COLS = 'detallePedidoCantidad, detallePedidoPlatilloNombre, detallePedidoPlatilloDescripcion, platillos ( recetas ( ingredientes ( ingredienteNombre ) ) )';
 
 const CATEGORIA_ICONOS: Record<string, string> = {
   'Desayunos':         '☕',
@@ -343,6 +344,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
         lineas: ((det ?? []) as DetComanda[]).map(d => ({
           cantidad: d.detallePedidoCantidad,
           nombre: d.detallePedidoPlatilloNombre ?? '(sin nombre)',
+          descripcion: d.detallePedidoPlatilloDescripcion ?? null,
           ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => r.ingredientes.map(i => i.ingredienteNombre)),
         })),
       });
@@ -379,6 +381,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
       lineas: ((det ?? []) as DetComanda[]).map(d => ({
         cantidad: d.detallePedidoCantidad,
         nombre: d.detallePedidoPlatilloNombre ?? '(sin nombre)',
+        descripcion: d.detallePedidoPlatilloDescripcion ?? null,
         ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => (r.ingredientes ?? []).map(i => i.ingredienteNombre)),
       })),
     });
@@ -1032,6 +1035,11 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                 <p style={{ fontSize: '14pt', fontWeight: 700, margin: '0 0 1mm', lineHeight: 1.3 }}>
                   {l.cantidad}×&nbsp;{l.nombre}
                 </p>
+                {l.descripcion && (
+                  <p style={{ fontSize: '9pt', fontWeight: 400, margin: '0 0 1mm', paddingLeft: '4mm', lineHeight: 1.4, color: '#333' }}>
+                    {l.descripcion}
+                  </p>
+                )}
                 {l.ingredientes.length > 0 && (
                   <div style={{ paddingLeft: '4mm' }}>
                     {l.ingredientes.map((ing, j) => (

@@ -23,6 +23,7 @@ export interface DetallePedido {
   detallePedidoCantidad: number;
   detallePedidoPrecioUnitario: number;
   detallePedidoPlatilloNombre: string | null;
+  detallePedidoPlatilloDescripcion?: string | null;
 }
 
 export interface LineaCarrito {
