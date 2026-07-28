@@ -5,6 +5,10 @@ import {
 } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { exportarExcel, exportarPDF, fmtFecha, fechaHoy, rangoUTC, type Hoja } from '../lib/exportar';
+import Boton           from './ui/Boton';
+import Tarjeta         from './ui/Tarjeta';
+import EncabezadoPagina from './ui/EncabezadoPagina';
+import EstadoVacio     from './ui/EstadoVacio';
 
 // ── Timezone ────────────────────────────────────────────────────────────────
 const EC_TZ = 'America/Guayaquil';
@@ -55,7 +59,6 @@ function computarMetricas(pedidos: PedidoRaw[]) {
     ticketPromedio: totalPedidos > 0 ? ingresoTotal / totalPedidos : 0,
   };
 
-  // Por Categoría
   const catMap = new Map<string, { unidadesVendidas: number; ingresoTotal: number }>();
   for (const p of pedidos) {
     for (const d of p.detallesPedido) {
@@ -71,7 +74,6 @@ function computarMetricas(pedidos: PedidoRaw[]) {
     .map(([platilloCategoria, v]) => ({ platilloCategoria, ...v }))
     .sort((a, b) => b.ingresoTotal - a.ingresoTotal);
 
-  // Por Día (hora local Ecuador)
   const diaMap = new Map<string, { numeroPedidos: number; ingresoTotal: number }>();
   for (const p of pedidos) {
     const dia  = localFecha(p.pedidoCreadoEn);
@@ -82,7 +84,6 @@ function computarMetricas(pedidos: PedidoRaw[]) {
     .map(([dia, v]) => ({ dia, numeroPedidos: v.numeroPedidos, ingresoTotal: v.ingresoTotal, ticketPromedio: v.ingresoTotal / v.numeroPedidos }))
     .sort((a, b) => a.dia.localeCompare(b.dia));
 
-  // Por Platillo (top 10)
   const platMap = new Map<string, VentaPlatillo>();
   for (const p of pedidos) {
     for (const d of p.detallesPedido) {
@@ -101,7 +102,6 @@ function computarMetricas(pedidos: PedidoRaw[]) {
     .sort((a, b) => b.unidadesVendidas - a.unidadesVendidas)
     .slice(0, 10);
 
-  // Por Hora (hora local Ecuador)
   const horaMap = new Map<number, { numeroPedidos: number; ingresoTotal: number }>();
   for (const p of pedidos) {
     const hora = localHora(p.pedidoCreadoEn);
@@ -112,7 +112,6 @@ function computarMetricas(pedidos: PedidoRaw[]) {
     .map(([hora, v]) => ({ hora, ...v }))
     .sort((a, b) => a.hora - b.hora);
 
-  // Por Mesero
   const meseroMap = new Map<string, { perfilNombre: string; numeroPedidos: number; ingresoTotal: number }>();
   for (const p of pedidos) {
     const nombre = p.perfiles?.[0]?.perfilNombre ?? 'Sin asignar';
@@ -145,7 +144,6 @@ function calcPresetRango(p: Exclude<Preset, 'custom'>): { desde: string; hasta: 
     const desde = new Intl.DateTimeFormat('en-CA', { timeZone: EC_TZ }).format(d);
     return { desde, hasta: hoy };
   }
-  // 'mes'
   const [y, m] = hoy.split('-');
   return { desde: `${y}-${m}-01`, hasta: hoy };
 }
@@ -155,13 +153,13 @@ function formatFechaDisplay(yyyymmdd: string): string {
   return `${d}/${m}/${y}`;
 }
 
-// ── Componente ───────────────────────────────────────────────────────────────
-const GOLD = '#D4AF37';
+// ── Colores para Recharts (valores canónicos de los tokens) ──────────────────
+const ORO        = '#C9A227';
+const TINTA_SUAVE = '#9A9382';
 
 function fmt$(n: number) { return `$${Number(n).toFixed(2)}`; }
 
-const VACIO = <p className="text-gray-400 text-sm text-center py-8">Sin datos para el período seleccionado.</p>;
-
+// ── Componente ───────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [preset, setPreset]               = useState<Preset>('hoy');
   const [fechaDesde, setFechaDesde]       = useState(() => fechaHoy());
@@ -176,10 +174,10 @@ export default function AdminDashboard() {
   const [porPlatillo, setPorPlatillo]     = useState<VentaPlatillo[]>([]);
   const [porHora, setPorHora]             = useState<VentaHora[]>([]);
   const [porMesero, setPorMesero]         = useState<VentaMesero[]>([]);
-  const [efectivoTotal, setEfectivoTotal]         = useState(0);
-  const [transferenciaTotal, setTransferenciaTotal] = useState(0);
-  const [cajaTotal, setCajaTotal]                 = useState(0);
-  const [cajaPorDia, setCajaPorDia]               = useState<CajaDia[]>([]);
+  const [efectivoTotal, setEfectivoTotal]               = useState(0);
+  const [transferenciaTotal, setTransferenciaTotal]     = useState(0);
+  const [cajaTotal, setCajaTotal]                       = useState(0);
+  const [cajaPorDia, setCajaPorDia]                     = useState<CajaDia[]>([]);
   const [generando, setGenerando]         = useState(false);
   const [errorExport, setErrorExport]     = useState<string | null>(null);
 
@@ -227,21 +225,19 @@ export default function AdminDashboard() {
       .lte('cajaFecha', fechaHasta)
       .order('cajaFecha', { ascending: true });
     const filas = (data ?? []) as CajaResumenFila[];
-    const ef  = filas.reduce((s, r) => s + Number(r.cajaEfectivo),      0);
-    const tr  = filas.reduce((s, r) => s + Number(r.cajaTransferencia),  0);
+    const ef  = filas.reduce((s, r) => s + Number(r.cajaEfectivo),     0);
+    const tr  = filas.reduce((s, r) => s + Number(r.cajaTransferencia), 0);
     setEfectivoTotal(ef);
     setTransferenciaTotal(tr);
     setCajaTotal(ef + tr);
     setCajaPorDia(filas.map(r => ({ dia: r.cajaFecha, efectivo: Number(r.cajaEfectivo), transferencia: Number(r.cajaTransferencia) })));
   }
 
-  // Recarga cuando cambian fechas o llega un pedido nuevo (refreshKey)
   useEffect(() => {
     void cargarMetricas();
     void cargarCaja();
   }, [fechaDesde, fechaHasta, refreshKey]);
 
-  // Suscripción realtime — solo una vez; usa setRefreshKey para disparar recarga
   useEffect(() => {
     const canal = supabase
       .channel('pedidos-dashboard-realtime')
@@ -264,7 +260,6 @@ export default function AdminDashboard() {
     setFechaHasta(hasta);
   }
 
-  // Etiqueta del rango para encabezados de reporte
   const rangoLabel = fechaDesde === fechaHasta
     ? formatFechaDisplay(fechaDesde)
     : `Del ${formatFechaDisplay(fechaDesde)} al ${formatFechaDisplay(fechaHasta)}`;
@@ -315,10 +310,10 @@ export default function AdminDashboard() {
           nombre: 'Cobros por Método',
           columnas: ['Método', 'Total'],
           filas: [
-            ['Efectivo', efectivoTotal],
-            ['Transferencia', transferenciaTotal],
+            ['Efectivo',       efectivoTotal],
+            ['Transferencia',  transferenciaTotal],
             ['', ''],
-            ['Total Cobrado', cajaTotal],
+            ['Total Cobrado',  cajaTotal],
           ],
         },
       ];
@@ -374,12 +369,12 @@ export default function AdminDashboard() {
           },
         ],
         resumen ? [
-          { label: 'Total de Pedidos',   valor: String(resumen.totalPedidos) },
-          { label: 'Ingreso Total',      valor: fmt$(resumen.ingresoTotal) },
-          { label: 'Ticket Promedio',    valor: fmt$(resumen.ticketPromedio) },
-          { label: 'Efectivo en Caja',   valor: fmt$(efectivoTotal) },
-          { label: 'En Transferencias',  valor: fmt$(transferenciaTotal) },
-          { label: 'Total Cobrado',      valor: fmt$(cajaTotal) },
+          { label: 'Total de Pedidos',  valor: String(resumen.totalPedidos) },
+          { label: 'Ingreso Total',     valor: fmt$(resumen.ingresoTotal) },
+          { label: 'Ticket Promedio',   valor: fmt$(resumen.ticketPromedio) },
+          { label: 'Efectivo en Caja',  valor: fmt$(efectivoTotal) },
+          { label: 'En Transferencias', valor: fmt$(transferenciaTotal) },
+          { label: 'Total Cobrado',     valor: fmt$(cajaTotal) },
         ] : undefined
       );
     } catch (e) {
@@ -389,242 +384,260 @@ export default function AdminDashboard() {
     }
   }
 
+  // ── Estados tempranos ────────────────────────────────────────────────────────
   if (cargando) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-[#FAFAF6]">
-        <p className="text-sanpedro-wood font-medium tracking-wide">Cargando métricas…</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-tinta-media text-sm">Cargando métricas…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 bg-[#FAFAF6] min-h-[60vh]">
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-          Error al cargar métricas: {error}
-        </div>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
+        <Tarjeta className="text-peligro text-sm">Error al cargar métricas: {error}</Tarjeta>
       </div>
     );
   }
 
+  // ── Vista principal ──────────────────────────────────────────────────────────
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-[#FAFAF6] min-h-[60vh]">
+    <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
-      {/* ── Encabezado: en vivo + rango + exportación ── */}
-      <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-semibold text-green-600 uppercase tracking-widest">En vivo</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {errorExport && <span className="text-xs text-red-600 mr-1">{errorExport}</span>}
-            <button
-              onClick={handleExportarExcel}
-              disabled={generando}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
+      {/* ── Encabezado ── */}
+      <EncabezadoPagina
+        titulo="Dashboard"
+        subtitulo={rangoLabel}
+        acciones={
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-exito animate-pulse" />
+              <span className="text-[11px] font-medium text-exito uppercase tracking-widest">En vivo</span>
+            </span>
+            {errorExport && <span className="text-[11px] text-peligro">{errorExport}</span>}
+            <Boton variante="secundario" tamanio="sm" onClick={handleExportarExcel} disabled={generando}>
               {generando ? '…' : 'Excel'}
-            </button>
-            <button
-              onClick={handleExportarPDF}
-              disabled={generando}
-              className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
+            </Boton>
+            <Boton variante="secundario" tamanio="sm" onClick={handleExportarPDF} disabled={generando}>
               {generando ? '…' : 'PDF'}
-            </button>
-          </div>
-        </div>
+            </Boton>
+          </>
+        }
+      />
 
-        {/* Selector de rango */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-sanpedro-gold/10">
+      {/* ── Selector de rango ── */}
+      <Tarjeta className="space-y-3">
+        <div className="flex flex-wrap gap-2">
           {(['hoy', '7dias', 'mes', 'custom'] as Preset[]).map(p => (
             <button
               key={p}
               onClick={() => seleccionarPreset(p)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 ${
                 preset === p
-                  ? 'bg-sanpedro-wood text-sanpedro-gold'
-                  : 'bg-sanpedro-wood-light/60 text-sanpedro-wood hover:bg-sanpedro-gold/20'
+                  ? 'bg-oro text-carbon'
+                  : 'bg-linea-suave text-tinta-media hover:bg-linea'
               }`}
             >
               {PRESET_LABELS[p]}
             </button>
           ))}
-          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={e => { setFechaDesde(e.target.value); setPreset('custom'); }}
-              className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg border border-sanpedro-gold/40 focus:outline-none focus:ring-1 focus:ring-sanpedro-gold"
-            />
-            <span className="text-gray-400 text-xs">—</span>
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={e => { setFechaHasta(e.target.value); setPreset('custom'); }}
-              className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg border border-sanpedro-gold/40 focus:outline-none focus:ring-1 focus:ring-sanpedro-gold"
-            />
-          </div>
         </div>
-      </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-linea pt-3">
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={e => { setFechaDesde(e.target.value); setPreset('custom'); }}
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-linea focus:outline-none focus:ring-1 focus:ring-oro text-sm"
+          />
+          <span className="text-tinta-suave text-xs">—</span>
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={e => { setFechaHasta(e.target.value); setPreset('custom'); }}
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-linea focus:outline-none focus:ring-1 focus:ring-oro text-sm"
+          />
+        </div>
+      </Tarjeta>
 
-      {/* ── KPI cards ── */}
+      {/* ── KPIs principales ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Total de Pedidos', valor: resumen?.totalPedidos?.toString() ?? '0' },
-          { label: 'Ingreso Total',    valor: fmt$(resumen?.ingresoTotal ?? 0) },
-          { label: 'Ticket Promedio',  valor: fmt$(resumen?.ticketPromedio ?? 0) },
-        ].map(kpi => (
-          <div
-            key={kpi.label}
-            className="bg-white rounded-xl border border-stone-200 border-t-[3px] border-t-sanpedro-gold p-5 shadow-sm"
-          >
-            <p className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">{kpi.label}</p>
-            <p className="text-3xl font-medium text-sanpedro-dark tracking-tight">{kpi.valor}</p>
-          </div>
-        ))}
+        <Tarjeta destacada>
+          <p className="text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Ingreso Total</p>
+          <p className="text-3xl font-medium text-oro-tinta tracking-tight">{fmt$(resumen?.ingresoTotal ?? 0)}</p>
+          <p className="text-[11px] text-tinta-suave mt-1">{rangoLabel}</p>
+        </Tarjeta>
+        <Tarjeta>
+          <p className="text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Total de Pedidos</p>
+          <p className="text-3xl font-medium text-tinta tracking-tight">{resumen?.totalPedidos ?? 0}</p>
+        </Tarjeta>
+        <Tarjeta>
+          <p className="text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Ticket Promedio</p>
+          <p className="text-3xl font-medium text-tinta tracking-tight">{fmt$(resumen?.ticketPromedio ?? 0)}</p>
+        </Tarjeta>
       </div>
 
       {/* ── KPI caja ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-stone-200 border-t-[3px] border-t-sanpedro-gold p-5 shadow-sm">
-          <p className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Efectivo en Caja</p>
-          <p className="text-3xl font-medium text-sanpedro-dark tracking-tight">{fmt$(efectivoTotal)}</p>
-          <p className="text-xs text-stone-400 mt-1">Total cobrado: {fmt$(cajaTotal)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-stone-200 border-t-[3px] border-t-sanpedro-gold p-5 shadow-sm">
-          <p className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">En Transferencias</p>
-          <p className="text-3xl font-medium text-sanpedro-dark tracking-tight">{fmt$(transferenciaTotal)}</p>
-          <p className="text-xs text-stone-400 mt-1">Total cobrado: {fmt$(cajaTotal)}</p>
-        </div>
+        <Tarjeta>
+          <p className="text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Efectivo en Caja</p>
+          <p className="text-3xl font-medium text-exito tracking-tight">{fmt$(efectivoTotal)}</p>
+          <p className="text-[11px] text-tinta-suave mt-1">Total cobrado: {fmt$(cajaTotal)}</p>
+        </Tarjeta>
+        <Tarjeta>
+          <p className="text-[11px] uppercase tracking-widest text-tinta-suave mb-1">En Transferencias</p>
+          <p className="text-3xl font-medium text-tinta tracking-tight">{fmt$(transferenciaTotal)}</p>
+          <p className="text-[11px] text-tinta-suave mt-1">Total cobrado: {fmt$(cajaTotal)}</p>
+        </Tarjeta>
       </div>
 
-      {/* ── Ingreso por categoría + Ingreso diario — misma fila en md+ ── */}
+      {/* ── Gráficas: Categoría + Diario ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
 
-        {/* Barras */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-sm flex flex-col">
-          <h2 className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-4 shrink-0">Ingreso por Categoría</h2>
+        <Tarjeta className="flex flex-col">
+          <h2 className="text-[11px] font-semibold text-tinta-media uppercase tracking-widest mb-4 shrink-0">
+            Ingreso por Categoría
+          </h2>
           <div className="flex-1 min-h-[260px] flex items-center justify-center">
-            {porCategoria.length === 0 ? VACIO : (() => {
-              const rotar = porCategoria.length > 3;
-              return (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart
-                    data={porCategoria}
-                    margin={{ top: 4, right: 16, left: 8, bottom: rotar ? 52 : 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0e8d0" />
-                    <XAxis
-                      dataKey="platilloCategoria"
-                      tick={{ fontSize: 11 }}
-                      angle={rotar ? -35 : 0}
-                      textAnchor={rotar ? 'end' : 'middle'}
-                      interval={0}
-                    />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
-                    <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Ingreso']} />
-                    <Bar dataKey="ingresoTotal" fill={GOLD} radius={[4, 4, 0, 0]} maxBarSize={60} />
-                  </BarChart>
-                </ResponsiveContainer>
-              );
-            })()}
+            {porCategoria.length === 0
+              ? <EstadoVacio icono="📊" titulo="Sin datos para el período" />
+              : (() => {
+                  const rotar = porCategoria.length > 3;
+                  return (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart
+                        data={porCategoria}
+                        margin={{ top: 4, right: 16, left: 8, bottom: rotar ? 52 : 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E9E4D8" />
+                        <XAxis
+                          dataKey="platilloCategoria"
+                          tick={{ fontSize: 11 }}
+                          angle={rotar ? -35 : 0}
+                          textAnchor={rotar ? 'end' : 'middle'}
+                          interval={0}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
+                        <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Ingreso']} />
+                        <Bar dataKey="ingresoTotal" fill={ORO} radius={[4, 4, 0, 0]} maxBarSize={60} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  );
+                })()
+            }
           </div>
-        </div>
+        </Tarjeta>
 
-        {/* Línea */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-sm flex flex-col">
-          <h2 className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-4 shrink-0">Ingreso Diario</h2>
+        <Tarjeta className="flex flex-col">
+          <h2 className="text-[11px] font-semibold text-tinta-media uppercase tracking-widest mb-4 shrink-0">
+            Ingreso Diario
+          </h2>
           <div className="flex-1 min-h-[260px] flex items-center justify-center">
-            {porDia.length === 0 ? VACIO
-            : porDia.length === 1 ? (
-              <div className="flex flex-col items-center gap-1.5 text-center">
-                <span className="text-3xl font-medium text-sanpedro-wood tracking-tight">{fmt$(porDia[0].ingresoTotal)}</span>
-                <p className="text-xs text-stone-400">{porDia[0].dia} · {porDia[0].numeroPedidos} pedido(s)</p>
-                <p className="text-[10px] text-stone-300 mt-1">Se necesitan al menos 2 días para mostrar la tendencia</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={porDia} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0e8d0" />
-                  <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
-                  <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Ingreso']} />
-                  <Line
-                    type="monotone"
-                    dataKey="ingresoTotal"
-                    stroke={GOLD}
-                    strokeWidth={2}
-                    dot={{ fill: GOLD, r: 4, strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: GOLD }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+            {porDia.length === 0
+              ? <EstadoVacio icono="📈" titulo="Sin datos para el período" />
+              : porDia.length === 1
+                ? (
+                  <div className="flex flex-col items-center gap-1.5 text-center">
+                    <span className="text-3xl font-medium text-oro-tinta tracking-tight">{fmt$(porDia[0].ingresoTotal)}</span>
+                    <p className="text-xs text-tinta-suave">{porDia[0].dia} · {porDia[0].numeroPedidos} pedido(s)</p>
+                    <p className="text-[10px] text-tinta-suave mt-1">Se necesitan al menos 2 días para mostrar la tendencia</p>
+                  </div>
+                )
+                : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={porDia} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E9E4D8" />
+                      <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
+                      <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Ingreso']} />
+                      <Line
+                        type="monotone"
+                        dataKey="ingresoTotal"
+                        stroke={ORO}
+                        strokeWidth={2}
+                        dot={{ fill: ORO, r: 4, strokeWidth: 0 }}
+                        activeDot={{ r: 6, fill: ORO }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )
+            }
           </div>
-        </div>
+        </Tarjeta>
 
       </div>
 
       {/* ── Cobros por día ── */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-sm flex flex-col">
-        <h2 className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-4 shrink-0">Cobros por Día (Efectivo vs. Transferencia)</h2>
+      <Tarjeta className="flex flex-col">
+        <h2 className="text-[11px] font-semibold text-tinta-media uppercase tracking-widest mb-4 shrink-0">
+          Cobros por Día (Efectivo vs. Transferencia)
+        </h2>
         <div className="flex-1 min-h-[260px] flex items-center justify-center">
-          {cajaPorDia.length === 0 ? VACIO : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={cajaPorDia} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0e8d0" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
-                <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} />
-                <Legend />
-                <Bar dataKey="efectivo" name="Efectivo" stackId="caja" fill={GOLD} />
-                <Bar dataKey="transferencia" name="Transferencia" stackId="caja" fill="#78716C" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+          {cajaPorDia.length === 0
+            ? <EstadoVacio icono="💳" titulo="Sin cobros en el período" />
+            : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={cajaPorDia} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E9E4D8" />
+                  <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
+                  <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} />
+                  <Legend />
+                  <Bar dataKey="efectivo"      name="Efectivo"      stackId="caja" fill={ORO} />
+                  <Bar dataKey="transferencia" name="Transferencia" stackId="caja" fill={TINTA_SUAVE} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
         </div>
-      </div>
+      </Tarjeta>
 
       {/* ── Top 10 platillos ── */}
-      <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-stone-100">
-          <h2 className="text-xs font-semibold text-sanpedro-wood uppercase tracking-widest">Top 10 Platillos Más Vendidos</h2>
+      <Tarjeta sinPadding className="overflow-hidden">
+        <div className="px-[14px] py-3 border-b border-linea">
+          <h2 className="text-[11px] font-semibold text-tinta-media uppercase tracking-widest">
+            Top 10 Platillos Más Vendidos
+          </h2>
         </div>
-        {porPlatillo.length === 0 ? (
-          <div className="p-5">{VACIO}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                  <th className="text-left px-4 py-3 font-semibold">#</th>
-                  <th className="text-left px-4 py-3 font-semibold">Platillo</th>
-                  <th className="text-left px-4 py-3 font-semibold">Categoría</th>
-                  <th className="text-right px-4 py-3 font-semibold">Unidades</th>
-                  <th className="text-right px-4 py-3 font-semibold">Ingreso</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 bg-white">
-                {porPlatillo.map((p, i) => (
-                  <tr key={p.platilloId} className="hover:bg-stone-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-400 font-medium">{i + 1}</td>
-                    <td className="px-4 py-3 font-semibold text-sanpedro-dark">{p.platilloNombre}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-stone-400 whitespace-nowrap">
-                        {p.platilloCategoria}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-sanpedro-dark">{p.unidadesVendidas}</td>
-                    <td className="px-4 py-3 text-right font-bold text-sanpedro-wood whitespace-nowrap">{fmt$(p.ingresoTotal)}</td>
+        {porPlatillo.length === 0
+          ? (
+            <div className="px-[14px] py-3">
+              <EstadoVacio icono="🍽" titulo="Sin ventas en el período" />
+            </div>
+          )
+          : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-carbon text-white text-xs uppercase tracking-wide">
+                    <th className="text-left px-4 py-3 font-semibold">#</th>
+                    <th className="text-left px-4 py-3 font-semibold">Platillo</th>
+                    <th className="text-left px-4 py-3 font-semibold">Categoría</th>
+                    <th className="text-right px-4 py-3 font-semibold">Unidades</th>
+                    <th className="text-right px-4 py-3 font-semibold">Ingreso</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-linea bg-tarjeta">
+                  {porPlatillo.map((p, i) => (
+                    <tr key={p.platilloId} className="hover:bg-linea-suave transition-colors">
+                      <td className="px-4 py-3 text-tinta-suave font-medium">{i + 1}</td>
+                      <td className="px-4 py-3 font-medium text-tinta">{p.platilloNombre}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] uppercase tracking-[0.12em] text-tinta-suave whitespace-nowrap">
+                          {p.platilloCategoria}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-tinta">{p.unidadesVendidas}</td>
+                      <td className="px-4 py-3 text-right font-medium text-oro-tinta whitespace-nowrap">{fmt$(p.ingresoTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </Tarjeta>
+
     </div>
   );
 }

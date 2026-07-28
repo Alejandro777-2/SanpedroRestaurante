@@ -1,11 +1,33 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Tokens heredados (pantallas no migradas aún) ── */
   --color-sanpedro-gold:       #D4AF37;
   --color-sanpedro-gold-dark:  #AA820A;
   --color-sanpedro-wood:       #3E2723;
   --color-sanpedro-wood-light: #F5EBE6;
   --color-sanpedro-dark:       #1A1A1A;
+
+  /* ── Sistema de diseño v2 ── */
+  --color-oro:            #C9A227;
+  --color-oro-tinta:      #8A6B12;
+  --color-oro-tinte:      #FBF4DF;
+  --color-oro-borde:      #E5D08F;
+  --color-carbon:         #14120E;
+  --color-lienzo:         #FAF8F2;
+  --color-tarjeta:        #FFFFFF;
+  --color-linea:          #E9E4D8;
+  --color-linea-suave:    #F0EDE3;
+  --color-tinta:          #1A1815;
+  --color-tinta-media:    #6E6858;
+  --color-tinta-suave:    #9A9382;
+  --color-exito:          #2F7A4F;
+  --color-exito-tinte:    #E8F3EC;
+  --color-aviso:          #B4531C;
+  --color-aviso-tinte:    #FBEDE3;
+  --color-peligro:        #C0392B;
+  --color-peligro-tinte:  #FBECEA;
+  --color-peligro-borde:  #F0C4BD;
 }
 
 #root {
@@ -14,7 +36,7 @@
 }
 
 body {
-  background-color: #FAFAF6;
+  background-color: var(--color-lienzo);
   overflow-x: hidden;
 }
 
