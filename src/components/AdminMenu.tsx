@@ -424,6 +424,9 @@ export default function AdminMenu() {
         </>
       )}
 
+      {/* ── Build ID ── */}
+      <p className="text-[10px] text-stone-300 text-center py-3 select-none">{__BUILD_ID__}</p>
+
       {/* ── Modal: crear / editar platillo ── */}
       {modalAbierto && (
         <div

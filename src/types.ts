@@ -19,6 +19,12 @@ export interface Platillo {
   platilloArchivado: boolean;
 }
 
+export interface DetallePedido {
+  detallePedidoCantidad: number;
+  detallePedidoPrecioUnitario: number;
+  detallePedidoPlatilloNombre: string | null;
+}
+
 export interface LineaCarrito {
   platilloId: string;
   platilloNombre: string;

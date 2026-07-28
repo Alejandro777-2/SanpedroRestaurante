@@ -1,22 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
-import { type Platillo, type LineaCarrito, type PlatilloAgrupadoUI } from '../types';
+import { type Platillo, type LineaCarrito, type PlatilloAgrupadoUI, type DetallePedido } from '../types';
 import { confirmarPedido } from '../lib/confirmarPedido';
 import { fechaHoy, rangoUTC } from '../lib/exportar';
 
 type MenuItemUI = Platillo | PlatilloAgrupadoUI;
 
-type DetallePedido = {
-  detallePedidoCantidad: number;
-  detallePedidoPrecioUnitario: number;
-  platillos: { platilloNombre: string }[];
-};
-
 type DetComanda = {
   detallePedidoCantidad: number;
+  detallePedidoPlatilloNombre: string | null;
   platillos: {
-    platilloNombre: string;
     recetas: { ingredientes: { ingredienteNombre: string }[] }[];
   }[];
 };
@@ -52,9 +46,9 @@ type ComandaData = {
 };
 
 const PEDIDO_COLS = `pedidoId, pedidoMesa, pedidoClienteNombre, pedidoTotal, pedidoEstado, pedidoCreadoEn, pedidoMetodoPago, pedidoPagadoEn, pedidoObservacion,
-  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre ) )`;
+  detallesPedido ( detallePedidoCantidad, detallePedidoPrecioUnitario, detallePedidoPlatilloNombre )`;
 
-const COMANDA_DETALLE_COLS = 'detallePedidoCantidad, platillos ( platilloNombre, recetas ( ingredientes ( ingredienteNombre ) ) )';
+const COMANDA_DETALLE_COLS = 'detallePedidoCantidad, detallePedidoPlatilloNombre, platillos ( recetas ( ingredientes ( ingredienteNombre ) ) )';
 
 const CATEGORIA_ICONOS: Record<string, string> = {
   'Desayunos':         '☕',
@@ -205,7 +199,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
     const ids = data.map(r => r.pedidoId as string);
     const { data: det, error: detErr } = await supabase
       .from('detallesPedido')
-      .select('detallePedidoPedidoId, detallePedidoCantidad, detallePedidoPrecioUnitario, platillos ( platilloNombre )')
+      .select('detallePedidoPedidoId, detallePedidoCantidad, detallePedidoPrecioUnitario, detallePedidoPlatilloNombre')
       .in('detallePedidoPedidoId', ids);
     console.log('[porCobrar detalles]', { det, detErr, ids });
 
@@ -348,7 +342,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
         observacion: observacionActual,
         lineas: ((det ?? []) as DetComanda[]).map(d => ({
           cantidad: d.detallePedidoCantidad,
-          nombre: d.platillos?.[0]?.platilloNombre ?? '—',
+          nombre: d.detallePedidoPlatilloNombre ?? '(sin nombre)',
           ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => r.ingredientes.map(i => i.ingredienteNombre)),
         })),
       });
@@ -384,7 +378,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
       observacion: p.pedidoObservacion,
       lineas: ((det ?? []) as DetComanda[]).map(d => ({
         cantidad: d.detallePedidoCantidad,
-        nombre: d.platillos?.[0]?.platilloNombre ?? '—',
+        nombre: d.detallePedidoPlatilloNombre ?? '(sin nombre)',
         ingredientes: (d.platillos?.[0]?.recetas ?? []).flatMap(r => (r.ingredientes ?? []).map(i => i.ingredienteNombre)),
       })),
     });
@@ -755,7 +749,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                     <ul className="text-sm text-stone-600 space-y-1.5 mb-4 border-t border-stone-100 pt-3">
                       {p.detallesPedido.map((d, i) => (
                         <li key={i} className="flex justify-between">
-                          <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                          <span>{d.detallePedidoCantidad}× {d.detallePedidoPlatilloNombre ?? '(sin nombre)'}</span>
                           <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                         </li>
                       ))}
@@ -858,7 +852,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                           <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                             {lineas.map((d, i) => (
                               <li key={i} className="flex justify-between">
-                                <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                                <span>{d.detallePedidoCantidad}× {d.detallePedidoPlatilloNombre ?? '(sin nombre)'}</span>
                                 <span className="text-stone-400 text-xs self-end ml-4">
                                   ${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}
                                 </span>
@@ -958,7 +952,7 @@ export default function MenuMesero({ meseroId }: { meseroId: string }) {
                         <ul className="text-sm text-stone-600 space-y-1.5 mt-3">
                           {p.detallesPedido.map((d, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{d.detallePedidoCantidad}× {d.platillos?.[0]?.platilloNombre ?? '—'}</span>
+                              <span>{d.detallePedidoCantidad}× {d.detallePedidoPlatilloNombre ?? '(sin nombre)'}</span>
                               <span className="text-stone-400 text-xs self-end ml-4">${(d.detallePedidoCantidad * d.detallePedidoPrecioUnitario).toFixed(2)}</span>
                             </li>
                           ))}
