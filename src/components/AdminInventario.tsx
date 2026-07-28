@@ -1,19 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useSesion } from '../context/SesionContext';
-import { fmtFecha, fechaHoy, rangoUTC } from '../lib/exportar';
+import { rangoUTC, fechaHoy } from '../lib/exportar';
 import {
   listarStock, listarIngredientesActivos, crearIngrediente, actualizarIngrediente,
   toggleActivoIngrediente, registrarMovimiento, listarMovimientos,
   type StockItem, type IngredienteBase, type MovimientoConDetalle,
 } from '../lib/inventario';
-import AdminRecetas from './AdminRecetas';
+import AdminRecetas     from './AdminRecetas';
+import Boton            from './ui/Boton';
+import Insignia         from './ui/Insignia';
+import Tarjeta          from './ui/Tarjeta';
+import EncabezadoPagina from './ui/EncabezadoPagina';
+import EstadoVacio      from './ui/EstadoVacio';
 
-type SubTab = 'stock' | 'entrada' | 'movimientos' | 'recetas';
+// ── Tipos de movimiento ──────────────────────────────────────────────────────
+const MOV_TONO: Record<string, 'exito' | 'neutro' | 'aviso'> = {
+  entrada:    'exito',
+  salida:     'neutro',
+  ajuste:     'aviso',
+  devolucion: 'neutro',
+};
+const MOV_LABEL: Record<string, string> = {
+  entrada:    'Entrada',
+  salida:     'Salida',
+  ajuste:     'Ajuste',
+  devolucion: 'Devolución',
+};
 
+function fmtFechaEC(iso: string): string {
+  return new Intl.DateTimeFormat('es-EC', {
+    timeZone: 'America/Guayaquil',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+// ── Encabezado de sección ────────────────────────────────────────────────────
+function SeccionHeader({ tag, titulo }: { tag: string; titulo: string }) {
+  return (
+    <div className="mb-3">
+      <p className="text-[11px] uppercase tracking-[0.12em] text-tinta-suave mb-0.5">{tag}</p>
+      <h2 className="text-[13px] font-medium text-tinta">{titulo}</h2>
+    </div>
+  );
+}
+
+// ── Form de ingrediente ──────────────────────────────────────────────────────
 type FormIngrediente = {
-  ingredienteNombre: string;
-  ingredienteUnidad: string;
-  ingredienteStock: string;
+  ingredienteNombre:   string;
+  ingredienteUnidad:   string;
+  ingredienteStock:    string;
   ingredienteStockMin: string;
 };
 
@@ -21,32 +57,14 @@ const FORM_VACIO: FormIngrediente = {
   ingredienteNombre: '', ingredienteUnidad: '', ingredienteStock: '0', ingredienteStockMin: '0',
 };
 
-const TIPO_LABEL: Record<string, string> = {
-  entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', devolucion: 'Devolución',
-};
-const TIPO_CLASE: Record<string, string> = {
-  entrada:    'bg-green-100 text-green-700',
-  salida:     'bg-red-100   text-red-600',
-  ajuste:     'bg-amber-100 text-amber-700',
-  devolucion: 'bg-blue-100  text-blue-700',
-};
-
-const SUB_TABS: { id: SubTab; label: string }[] = [
-  { id: 'stock',       label: 'Stock' },
-  { id: 'entrada',     label: 'Entrada de Mercadería' },
-  { id: 'movimientos', label: 'Movimientos' },
-  { id: 'recetas',     label: 'Recetas' },
-];
-
+// ── Componente ───────────────────────────────────────────────────────────────
 export default function AdminInventario() {
   const { perfil } = useSesion();
-  const [subTab, setSubTab] = useState<SubTab>('stock');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // ── Datos compartidos ──
   const [ingredientes, setIngredientes] = useState<IngredienteBase[]>([]);
 
-  // ── Stock ──
+  // Stock
   const [stock, setStock]               = useState<StockItem[]>([]);
   const [cargandoStock, setCargandoStock] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -54,31 +72,30 @@ export default function AdminInventario() {
   const [form, setForm]                 = useState<FormIngrediente>(FORM_VACIO);
   const [guardandoForm, setGuardandoForm] = useState(false);
 
-  // ── Entrada ──
-  const [ingId, setIngId]         = useState('');
-  const [cantidad, setCantidad]   = useState('');
-  const [tipoMov, setTipoMov]     = useState<'entrada' | 'ajuste'>('entrada');
-  const [nota, setNota]           = useState('');
+  // Entrada
+  const [ingId, setIngId]       = useState('');
+  const [cantidad, setCantidad] = useState('');
+  const [tipoMov, setTipoMov]   = useState<'entrada' | 'ajuste'>('entrada');
+  const [nota, setNota]         = useState('');
   const [guardandoEntrada, setGuardandoEntrada] = useState(false);
 
-  // ── Movimientos ──
-  const [movimientos, setMovimientos]     = useState<MovimientoConDetalle[]>([]);
-  const [filtroIng, setFiltroIng]         = useState('');
-  const [filtroTipo, setFiltroTipo]       = useState('');
-  const [filtroDesde, setFiltroDesde]     = useState(() => fechaHoy());
-  const [filtroHasta, setFiltroHasta]     = useState(() => fechaHoy());
-  const [cargandoMov, setCargandoMov]     = useState(false);
+  // Movimientos
+  const [movimientos, setMovimientos] = useState<MovimientoConDetalle[]>([]);
+  const [filtroIng, setFiltroIng]     = useState('');
+  const [filtroTipo, setFiltroTipo]   = useState('');
+  const [filtroDesde, setFiltroDesde] = useState(() => fechaHoy());
+  const [filtroHasta, setFiltroHasta] = useState(() => fechaHoy());
+  const [cargandoMov, setCargandoMov] = useState(false);
 
   async function recargarStock() {
     setCargandoStock(true);
-    try { setStock(await listarStock()); }
+    try   { setStock(await listarStock()); }
     catch (e) { setErrorMsg(e instanceof Error ? e.message : String(e)); }
     finally   { setCargandoStock(false); }
   }
 
   async function cargarIngredientes() {
-    try { setIngredientes(await listarIngredientesActivos()); }
-    catch { /* no bloquea la UI */ }
+    try { setIngredientes(await listarIngredientesActivos()); } catch { /* no bloquea */ }
   }
 
   async function cargarMovimientos() {
@@ -88,8 +105,7 @@ export default function AdminInventario() {
       setMovimientos(await listarMovimientos({
         ingredienteId: filtroIng  || undefined,
         tipo:          filtroTipo || undefined,
-        gte,
-        lte,
+        gte, lte,
       }));
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
@@ -101,20 +117,15 @@ export default function AdminInventario() {
   useEffect(() => {
     void recargarStock();
     void cargarIngredientes();
+    void cargarMovimientos();
   }, []);
 
-  useEffect(() => {
-    if (subTab === 'movimientos') void cargarMovimientos();
-  }, [subTab, filtroIng, filtroTipo, filtroDesde, filtroHasta]);
+  useEffect(() => { void cargarMovimientos(); }, [filtroIng, filtroTipo, filtroDesde, filtroHasta]);
 
-  const alertaCount = stock.filter(s => s.stockDisponible <= s.ingredienteStockMin).length;
+  const alertaItems = stock.filter(s => s.stockDisponible <= s.ingredienteStockMin);
 
-  // ── CRUD ingrediente ──
-  function abrirNuevo() {
-    setForm(FORM_VACIO);
-    setEditando(null);
-    setModalAbierto(true);
-  }
+  // CRUD ingrediente
+  function abrirNuevo() { setForm(FORM_VACIO); setEditando(null); setModalAbierto(true); }
 
   function abrirEditar(item: StockItem) {
     setForm({
@@ -157,31 +168,22 @@ export default function AdminInventario() {
       await toggleActivoIngrediente(item.ingredienteId, !item.ingredienteActivo);
       await recargarStock();
       await cargarIngredientes();
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
-    }
+    } catch (e) { setErrorMsg(e instanceof Error ? e.message : String(e)); }
   }
 
-  // ── Entrada / Ajuste ──
   async function handleRegistrar() {
     if (!ingId) { setErrorMsg('Selecciona un ingrediente.'); return; }
     const cant = parseFloat(cantidad);
     if (isNaN(cant) || cant === 0) { setErrorMsg('Ingresa una cantidad válida (distinta de cero).'); return; }
     if (tipoMov === 'entrada' && cant <= 0) { setErrorMsg('La cantidad de entrada debe ser positiva.'); return; }
-
     setGuardandoEntrada(true);
     setErrorMsg(null);
     try {
       await registrarMovimiento({
-        ingredienteId: ingId,
-        cantidad:      cant,
-        tipo:          tipoMov,
-        nota:          nota.trim() || undefined,
-        usuarioId:     perfil!.perfilId,
+        ingredienteId: ingId, cantidad: cant, tipo: tipoMov,
+        nota: nota.trim() || undefined, usuarioId: perfil!.perfilId,
       });
-      setIngId('');
-      setCantidad('');
-      setNota('');
+      setIngId(''); setCantidad(''); setNota('');
       await recargarStock();
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
@@ -190,453 +192,428 @@ export default function AdminInventario() {
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[60vh] bg-[#FAFAF6]">
+    <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-8">
 
-      {/* Toast de error */}
       {errorMsg && (
-        <div className="fixed top-4 right-4 z-50 bg-red-700 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm">
+        <div className="fixed top-4 right-4 z-50 bg-peligro text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm">
           <span className="flex-1">{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} className="font-bold hover:text-red-300 text-lg leading-none">✕</button>
+          <button onClick={() => setErrorMsg(null)} className="font-bold hover:opacity-70 text-lg leading-none">✕</button>
         </div>
       )}
 
-      {/* Sub-navegación */}
-      <div className="flex overflow-x-auto border-b border-sanpedro-gold/20 bg-white px-2 sm:px-4">
-        {SUB_TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
-            className={`relative px-3 sm:px-5 py-3 text-sm font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px ${
-              subTab === t.id
-                ? 'border-sanpedro-gold text-sanpedro-wood'
-                : 'border-transparent text-gray-400 hover:text-sanpedro-wood'
-            }`}
-          >
-            {t.label}
-            {t.id === 'stock' && alertaCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold">
-                {alertaCount > 9 ? '9+' : alertaCount}
-              </span>
-            )}
-          </button>
-        ))}
+      <EncabezadoPagina
+        titulo="Inventario"
+        subtitulo="Stock, ingresos, movimientos y recetas de cocina"
+        acciones={<Boton variante="primario" onClick={abrirNuevo}>+ Nuevo ingrediente</Boton>}
+      />
+
+      {/* ══ Alertas de stock bajo ══ */}
+      <div>
+        <SeccionHeader tag="Alertas" titulo="Stock bajo mínimo" />
+        {alertaItems.length === 0 ? (
+          <Tarjeta>
+            <EstadoVacio icono="✓" titulo="Todo el inventario está sobre el mínimo" />
+          </Tarjeta>
+        ) : (
+          <Tarjeta acento>
+            <div className="flex items-center gap-2 mb-3">
+              <Insignia tono="aviso">{alertaItems.length} ingrediente(s) bajo mínimo</Insignia>
+            </div>
+            <div className="space-y-2">
+              {alertaItems.map(s => {
+                const enPeligro = s.stockDisponible <= 0;
+                return (
+                  <div key={s.ingredienteId} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-aviso-tinte flex items-center justify-center shrink-0">
+                      <span className="text-aviso text-xs font-bold">!</span>
+                    </div>
+                    <span className="text-sm text-tinta flex-1">{s.ingredienteNombre}</span>
+                    <span className={`text-sm font-medium ${enPeligro ? 'text-peligro' : 'text-aviso'}`}>
+                      {s.stockDisponible} / {s.ingredienteStockMin} {s.ingredienteUnidad}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Tarjeta>
+        )}
       </div>
 
-      {/* ══ Stock ══ */}
-      {subTab === 'stock' && (
-        <div className="p-4 md:p-6 space-y-4">
-          {alertaCount > 0 && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
-              {alertaCount} ingrediente(s) con stock disponible en o por debajo del mínimo.
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-400 font-medium">{stock.length} ingredientes</p>
-            <button
-              onClick={abrirNuevo}
-              className="bg-sanpedro-gold hover:bg-sanpedro-gold-dark text-sanpedro-dark font-bold text-sm px-4 py-2 rounded-lg transition-colors"
-            >
-              + Nuevo Ingrediente
-            </button>
-          </div>
-
-          {cargandoStock ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sanpedro-wood font-medium">Cargando stock…</p>
-            </div>
-          ) : stock.length === 0 ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-gray-400 text-sm">No hay ingredientes registrados.</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop: tabla */}
-              <div className="hidden md:block bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                        {['Ingrediente', 'Unidad', 'Stock Real', 'Comprometido', 'Disponible', 'Mínimo', 'Acciones'].map(h => (
-                          <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100 bg-white">
-                      {stock.map(s => {
-                        const enAlerta = s.stockDisponible <= s.ingredienteStockMin;
-                        return (
-                          <tr key={s.ingredienteId} className={`transition-colors ${enAlerta ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-stone-50'}`}>
-                            <td className="px-4 py-3 font-semibold text-sanpedro-dark">{s.ingredienteNombre}</td>
-                            <td className="px-4 py-3 text-gray-500">{s.ingredienteUnidad}</td>
-                            <td className="px-4 py-3 text-right font-bold text-sanpedro-dark">{s.stockReal}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{s.comprometido}</td>
-                            <td className={`px-4 py-3 text-right font-bold ${enAlerta ? 'text-red-600' : 'text-sanpedro-wood'}`}>
-                              {s.stockDisponible}
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-400">{s.ingredienteStockMin}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                <button onClick={() => abrirEditar(s)} className="text-xs font-semibold text-sanpedro-wood hover:text-sanpedro-dark bg-sanpedro-wood-light hover:bg-sanpedro-gold/20 px-3 py-1 rounded-lg transition-colors">Editar</button>
-                                <button onClick={() => handleToggleActivo(s)} className={`text-xs font-semibold px-3 py-1 rounded-lg border transition-colors ${s.ingredienteActivo ? 'text-red-600 bg-red-50 hover:bg-red-100 border-red-200' : 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200'}`}>
-                                  {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Móvil: tarjetas */}
-              <div className="md:hidden space-y-3">
-                {stock.map(s => {
-                  const enAlerta = s.stockDisponible <= s.ingredienteStockMin;
-                  return (
-                    <div key={s.ingredienteId} className={`bg-white rounded-xl border border-stone-200 p-4 shadow-sm ${enAlerta ? 'border-l-4 border-l-red-500' : 'border-t-[3px] border-t-sanpedro-gold'}`}>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <p className="font-semibold text-sanpedro-dark">{s.ingredienteNombre}</p>
-                          <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400 mt-0.5">{s.ingredienteUnidad}</p>
-                        </div>
-                        {enAlerta && <span className="shrink-0 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Stock bajo</span>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Stock Real</p><p className="font-bold text-sanpedro-dark">{s.stockReal}</p></div>
-                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Comprometido</p><p className="text-stone-500">{s.comprometido}</p></div>
-                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Disponible</p><p className={`font-bold ${enAlerta ? 'text-red-600' : 'text-sanpedro-wood'}`}>{s.stockDisponible}</p></div>
-                        <div><p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Mínimo</p><p className="text-stone-400">{s.ingredienteStockMin}</p></div>
-                      </div>
-                      <div className="flex gap-2 pt-3 border-t border-stone-100">
-                        <button onClick={() => abrirEditar(s)} className="flex-1 text-xs font-semibold text-sanpedro-wood bg-sanpedro-wood-light hover:bg-sanpedro-gold/20 px-3 py-2.5 rounded-lg min-h-[44px] transition-colors">Editar</button>
-                        <button onClick={() => handleToggleActivo(s)} className={`flex-1 text-xs font-semibold px-3 py-2.5 rounded-lg border min-h-[44px] transition-colors ${s.ingredienteActivo ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' : 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'}`}>
-                          {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ══ Entrada de Mercadería ══ */}
-      {subTab === 'entrada' && (
-        <div className="p-4 md:p-6">
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-6 max-w-lg space-y-5">
-            <h2 className="text-sm font-bold text-sanpedro-dark">Registrar movimiento de stock</h2>
-
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Ingrediente *</label>
-              <select
-                value={ingId}
-                onChange={e => setIngId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              >
-                <option value="">Seleccionar…</option>
-                {ingredientes.map(i => (
-                  <option key={i.ingredienteId} value={i.ingredienteId}>
-                    {i.ingredienteNombre} ({i.ingredienteUnidad})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-2">Tipo *</label>
-              <div className="flex gap-6">
-                {(['entrada', 'ajuste'] as const).map(t => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="radio"
-                      name="tipoMov"
-                      value={t}
-                      checked={tipoMov === t}
-                      onChange={() => { setTipoMov(t); setCantidad(''); }}
-                      className="accent-sanpedro-gold"
-                    />
-                    <span className="text-sm font-medium text-sanpedro-dark">
-                      {t === 'entrada' ? 'Compra / Entrada' : 'Ajuste de conteo'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {tipoMov === 'ajuste' && (
-                <p className="text-xs text-gray-400 mt-1.5">La cantidad puede ser negativa para corregir un sobrante.</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">
-                Cantidad * {tipoMov === 'entrada' ? '(positiva)' : '(+ o −)'}
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={cantidad}
-                onChange={e => setCantidad(e.target.value)}
-                placeholder={tipoMov === 'entrada' ? '10' : '−3.5'}
-                className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Nota (opcional)</label>
-              <input
-                type="text"
-                value={nota}
-                onChange={e => setNota(e.target.value)}
-                placeholder="Ej. Factura #1234, proveedor XYZ"
-                className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              />
-            </div>
-
-            <button
-              onClick={handleRegistrar}
-              disabled={guardandoEntrada}
-              className="w-full bg-sanpedro-gold hover:bg-sanpedro-gold-dark text-sanpedro-dark font-bold py-2.5 rounded-xl transition-colors disabled:opacity-50"
-            >
-              {guardandoEntrada ? 'Registrando…' : 'Registrar'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ══ Movimientos ══ */}
-      {subTab === 'movimientos' && (
-        <div className="p-4 md:p-6 space-y-4">
-          {/* Filtros */}
-          <div className="bg-white rounded-xl border border-stone-200 p-4 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3 sm:gap-4 shadow-sm">
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-wide mb-1">Ingrediente</label>
-              <select
-                value={filtroIng}
-                onChange={e => setFiltroIng(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-sanpedro-gold/40 bg-white focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              >
-                <option value="">Todos</option>
-                {ingredientes.map(i => (
-                  <option key={i.ingredienteId} value={i.ingredienteId}>{i.ingredienteNombre}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-wide mb-1">Tipo</label>
-              <select
-                value={filtroTipo}
-                onChange={e => setFiltroTipo(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-sanpedro-gold/40 bg-white focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              >
-                <option value="">Todos</option>
-                <option value="entrada">Entrada</option>
-                <option value="salida">Salida</option>
-                <option value="ajuste">Ajuste</option>
-                <option value="devolucion">Devolución</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-wide mb-1">Desde</label>
-              <input
-                type="date"
-                value={filtroDesde}
-                onChange={e => setFiltroDesde(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-sanpedro-gold/40 focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-wide mb-1">Hasta</label>
-              <input
-                type="date"
-                value={filtroHasta}
-                onChange={e => setFiltroHasta(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-sanpedro-gold/40 focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
-              />
-            </div>
-          </div>
-
-          {cargandoMov ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sanpedro-wood font-medium">Cargando movimientos…</p>
-            </div>
-          ) : movimientos.length === 0 ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-gray-400 text-sm">Sin movimientos para los filtros seleccionados.</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop: tabla */}
-              <div className="hidden md:block bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-sanpedro-wood text-white text-xs uppercase tracking-wide">
-                        {['Fecha/Hora', 'Ingrediente', 'Tipo', 'Cantidad', 'Usuario', 'Nota'].map(h => (
-                          <th key={h} className="text-left px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100 bg-white">
-                      {movimientos.map(m => (
-                        <tr key={m.movimientoId} className="hover:bg-stone-50 transition-colors">
-                          <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtFecha(m.movimientoCreadoEn)}</td>
-                          <td className="px-4 py-3 font-semibold text-sanpedro-dark">
-                            {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
-                            {m.ingredientes?.[0]?.ingredienteUnidad && (
-                              <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${TIPO_CLASE[m.movimientoTipo] ?? 'bg-gray-100 text-gray-600'}`}>
-                              {TIPO_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
-                            </span>
-                          </td>
-                          <td className={`px-4 py-3 text-right font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
-                            {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</td>
-                          <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>{m.movimientoNota ?? '—'}</td>
-                        </tr>
+      {/* ══ Tabla de stock ══ */}
+      <div>
+        <SeccionHeader tag="Inventario" titulo="Stock actual" />
+        {cargandoStock ? (
+          <Tarjeta><p className="text-sm text-tinta-media py-4 text-center">Cargando stock…</p></Tarjeta>
+        ) : stock.length === 0 ? (
+          <Tarjeta><EstadoVacio icono="📦" titulo="No hay ingredientes registrados" /></Tarjeta>
+        ) : (
+          <>
+            {/* Desktop */}
+            <Tarjeta sinPadding className="hidden md:block overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-linea">
+                      {['Ingrediente', 'Unidad', 'Real', 'Comprometido', 'Disponible', 'Mínimo', 'Acciones'].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-[11px] uppercase tracking-widest text-tinta-suave font-medium whitespace-nowrap">{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stock.map(s => {
+                      const enAlerta  = s.stockDisponible <= s.ingredienteStockMin;
+                      const enPeligro = s.stockDisponible <= 0;
+                      return (
+                        <tr key={s.ingredienteId} className="border-b border-linea-suave last:border-0 hover:bg-linea-suave/50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-tinta">{s.ingredienteNombre}</td>
+                          <td className="px-4 py-3 text-tinta-media">{s.ingredienteUnidad}</td>
+                          <td className="px-4 py-3 text-right text-tinta">{s.stockReal}</td>
+                          <td className="px-4 py-3 text-right text-tinta-media">{s.comprometido}</td>
+                          <td className={`px-4 py-3 text-right font-medium ${enPeligro ? 'text-peligro' : enAlerta ? 'text-aviso' : 'text-tinta'}`}>
+                            {s.stockDisponible}
+                          </td>
+                          <td className="px-4 py-3 text-right text-tinta-suave">{s.ingredienteStockMin}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                              <Boton variante="secundario" tamanio="sm" onClick={() => abrirEditar(s)}>Editar</Boton>
+                              <Boton
+                                variante={s.ingredienteActivo ? 'peligro' : 'secundario'}
+                                tamanio="sm"
+                                onClick={() => handleToggleActivo(s)}
+                              >
+                                {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
+                              </Boton>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
+            </Tarjeta>
 
-              {/* Móvil: tarjetas */}
-              <div className="md:hidden space-y-3">
-                {movimientos.map(m => (
-                  <div key={m.movimientoId} className="bg-white rounded-xl border border-stone-200 border-t-[3px] border-t-sanpedro-gold p-4 shadow-sm">
+            {/* Móvil: etiqueta-valor apilado */}
+            <div className="md:hidden space-y-3">
+              {stock.map(s => {
+                const enAlerta  = s.stockDisponible <= s.ingredienteStockMin;
+                const enPeligro = s.stockDisponible <= 0;
+                return (
+                  <Tarjeta key={s.ingredienteId}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <p className="font-semibold text-sanpedro-dark">
+                        <p className="font-medium text-tinta text-sm">{s.ingredienteNombre}</p>
+                        <p className="text-[11px] text-tinta-suave mt-0.5">{s.ingredienteUnidad}</p>
+                      </div>
+                      {enAlerta && <Insignia tono={enPeligro ? 'peligro' : 'aviso'}>Stock bajo</Insignia>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Real</p>
+                        <p className="text-sm font-medium text-tinta">{s.stockReal}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Comprometido</p>
+                        <p className="text-sm text-tinta-media">{s.comprometido}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Disponible</p>
+                        <p className={`text-sm font-medium ${enPeligro ? 'text-peligro' : enAlerta ? 'text-aviso' : 'text-tinta'}`}>{s.stockDisponible}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Mínimo</p>
+                        <p className="text-sm text-tinta-suave">{s.ingredienteStockMin}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-3 border-t border-linea-suave">
+                      <Boton variante="secundario" tamanio="sm" onClick={() => abrirEditar(s)} className="flex-1">Editar</Boton>
+                      <Boton
+                        variante={s.ingredienteActivo ? 'peligro' : 'secundario'}
+                        tamanio="sm"
+                        onClick={() => handleToggleActivo(s)}
+                        className="flex-1"
+                      >
+                        {s.ingredienteActivo ? 'Desactivar' : 'Activar'}
+                      </Boton>
+                    </div>
+                  </Tarjeta>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ══ Ingreso de mercadería ══ */}
+      <div>
+        <SeccionHeader tag="Operaciones" titulo="Registrar ingreso de mercadería" />
+        <div className="max-w-lg border border-dashed border-linea rounded-lg p-5 space-y-4">
+          <div>
+            <label className="block text-[12px] font-medium text-tinta-media mb-1">Ingrediente *</label>
+            <select
+              value={ingId}
+              onChange={e => setIngId(e.target.value)}
+              className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm bg-white focus:outline-none focus:ring-1 focus:ring-oro"
+            >
+              <option value="">Seleccionar…</option>
+              {ingredientes.map(i => (
+                <option key={i.ingredienteId} value={i.ingredienteId}>
+                  {i.ingredienteNombre} ({i.ingredienteUnidad})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-medium text-tinta-media mb-2">Tipo *</label>
+            <div className="flex gap-6">
+              {(['entrada', 'ajuste'] as const).map(t => (
+                <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="radio" name="tipoMov" value={t}
+                    checked={tipoMov === t}
+                    onChange={() => { setTipoMov(t); setCantidad(''); }}
+                    className="accent-oro"
+                  />
+                  <span className="text-sm text-tinta">
+                    {t === 'entrada' ? 'Compra / Entrada' : 'Ajuste de conteo'}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {tipoMov === 'ajuste' && (
+              <p className="text-xs text-tinta-suave mt-1.5">La cantidad puede ser negativa para corregir un sobrante.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-medium text-tinta-media mb-1">
+              Cantidad * {tipoMov === 'entrada' ? '(positiva)' : '(+ o −)'}
+            </label>
+            <input
+              type="number" step="0.01"
+              value={cantidad}
+              onChange={e => setCantidad(e.target.value)}
+              placeholder={tipoMov === 'entrada' ? '10' : '−3.5'}
+              className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-medium text-tinta-media mb-1">Nota (opcional)</label>
+            <input
+              type="text"
+              value={nota}
+              onChange={e => setNota(e.target.value)}
+              placeholder="Ej. Factura #1234, proveedor XYZ"
+              className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
+            />
+          </div>
+
+          <Boton variante="primario" className="w-full" onClick={handleRegistrar} disabled={guardandoEntrada}>
+            {guardandoEntrada ? 'Registrando…' : 'Registrar ingreso'}
+          </Boton>
+        </div>
+      </div>
+
+      {/* ══ Historial de movimientos ══ */}
+      <div>
+        <SeccionHeader tag="Historial" titulo="Movimientos de stock" />
+
+        {/* Filtros */}
+        <Tarjeta className="mb-4 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Ingrediente</label>
+            <select
+              value={filtroIng}
+              onChange={e => setFiltroIng(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg border border-linea bg-white text-sm focus:outline-none focus:ring-1 focus:ring-oro"
+            >
+              <option value="">Todos</option>
+              {ingredientes.map(i => (
+                <option key={i.ingredienteId} value={i.ingredienteId}>{i.ingredienteNombre}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Tipo</label>
+            <select
+              value={filtroTipo}
+              onChange={e => setFiltroTipo(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg border border-linea bg-white text-sm focus:outline-none focus:ring-1 focus:ring-oro"
+            >
+              <option value="">Todos</option>
+              <option value="entrada">Entrada</option>
+              <option value="salida">Salida</option>
+              <option value="ajuste">Ajuste</option>
+              <option value="devolucion">Devolución</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Desde</label>
+            <input type="date" value={filtroDesde} onChange={e => setFiltroDesde(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro" />
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-tinta-suave mb-1">Hasta</label>
+            <input type="date" value={filtroHasta} onChange={e => setFiltroHasta(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro" />
+          </div>
+        </Tarjeta>
+
+        {cargandoMov ? (
+          <Tarjeta><p className="text-sm text-tinta-media py-4 text-center">Cargando movimientos…</p></Tarjeta>
+        ) : movimientos.length === 0 ? (
+          <Tarjeta><EstadoVacio icono="📋" titulo="Sin movimientos para los filtros seleccionados" /></Tarjeta>
+        ) : (
+          <>
+            {/* Desktop */}
+            <Tarjeta sinPadding className="hidden md:block overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-linea">
+                      {['Fecha/Hora', 'Ingrediente', 'Tipo', 'Cantidad', 'Usuario', 'Nota'].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-[11px] uppercase tracking-widest text-tinta-suave font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movimientos.map(m => (
+                      <tr key={m.movimientoId} className="border-b border-linea-suave last:border-0 hover:bg-linea-suave/50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-tinta-suave whitespace-nowrap">{fmtFechaEC(m.movimientoCreadoEn)}</td>
+                        <td className="px-4 py-3 font-medium text-tinta">
                           {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
                           {m.ingredientes?.[0]?.ingredienteUnidad && (
-                            <span className="ml-1 text-xs text-gray-400 font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
+                            <span className="ml-1 text-xs text-tinta-suave font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
                           )}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 px-2 py-0.5 text-xs font-bold rounded-full ${TIPO_CLASE[m.movimientoTipo] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {TIPO_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-stone-100 pt-3">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Fecha</p>
-                        <p className="text-xs text-gray-500">{fmtFecha(m.movimientoCreadoEn)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Cantidad</p>
-                        <p className={`font-bold ${m.movimientoCantidad < 0 ? 'text-red-600' : 'text-sanpedro-wood'}`}>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Insignia tono={MOV_TONO[m.movimientoTipo] ?? 'neutro'}>
+                            {MOV_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
+                          </Insignia>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${m.movimientoCantidad < 0 ? 'text-peligro' : 'text-exito'}`}>
                           {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Usuario</p>
-                        <p className="text-xs text-gray-600">{m.perfiles?.[0]?.perfilNombre ?? '—'}</p>
-                      </div>
-                      {m.movimientoNota && (
-                        <div className="col-span-2">
-                          <p className="text-[10px] uppercase tracking-[0.12em] text-stone-400">Nota</p>
-                          <p className="text-xs text-gray-400 truncate">{m.movimientoNota}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="px-4 py-3 text-tinta-media">{m.perfiles?.[0]?.perfilNombre ?? '—'}</td>
+                        <td className="px-4 py-3 text-tinta-suave text-xs max-w-[180px] truncate" title={m.movimientoNota ?? ''}>{m.movimientoNota ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
-          )}
-        </div>
-      )}
+            </Tarjeta>
+
+            {/* Móvil */}
+            <div className="md:hidden space-y-3">
+              {movimientos.map(m => (
+                <Tarjeta key={m.movimientoId}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <p className="font-medium text-tinta text-sm">
+                      {m.ingredientes?.[0]?.ingredienteNombre ?? '—'}
+                      {m.ingredientes?.[0]?.ingredienteUnidad && (
+                        <span className="ml-1 text-xs text-tinta-suave font-normal">({m.ingredientes[0].ingredienteUnidad})</span>
+                      )}
+                    </p>
+                    <Insignia tono={MOV_TONO[m.movimientoTipo] ?? 'neutro'}>
+                      {MOV_LABEL[m.movimientoTipo] ?? m.movimientoTipo}
+                    </Insignia>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 border-t border-linea-suave pt-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Fecha</p>
+                      <p className="text-xs text-tinta-media">{fmtFechaEC(m.movimientoCreadoEn)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Cantidad</p>
+                      <p className={`text-sm font-medium ${m.movimientoCantidad < 0 ? 'text-peligro' : 'text-exito'}`}>
+                        {m.movimientoCantidad > 0 ? '+' : ''}{m.movimientoCantidad}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Usuario</p>
+                      <p className="text-xs text-tinta-media">{m.perfiles?.[0]?.perfilNombre ?? '—'}</p>
+                    </div>
+                    {m.movimientoNota && (
+                      <div className="col-span-2">
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-tinta-suave">Nota</p>
+                        <p className="text-xs text-tinta-suave">{m.movimientoNota}</p>
+                      </div>
+                    )}
+                  </div>
+                </Tarjeta>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ══ Recetas ══ */}
-      {subTab === 'recetas' && <AdminRecetas />}
+      <div>
+        <SeccionHeader tag="Cocina" titulo="Editor de recetas" />
+        <AdminRecetas />
+      </div>
 
-      {/* ══ Modal CRUD Ingrediente ══ */}
+      {/* ── Modal CRUD ingrediente ── */}
       {modalAbierto && (
         <div
-          className="fixed inset-0 bg-sanpedro-dark/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          className="fixed inset-0 bg-carbon/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
           onClick={() => setModalAbierto(false)}
+          onKeyDown={e => e.key === 'Escape' && setModalAbierto(false)}
         >
           <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col overflow-hidden max-h-[95svh]"
+            className="bg-tarjeta rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md flex flex-col overflow-hidden max-h-[95svh]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="bg-sanpedro-wood px-6 py-4 shrink-0">
-              <h3 className="text-lg font-bold text-white">
-                {editando ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}
+            <div className="px-6 py-4 border-b border-linea shrink-0">
+              <h3 className="text-[16px] font-medium text-tinta">
+                {editando ? 'Editar ingrediente' : 'Nuevo ingrediente'}
               </h3>
             </div>
-            <div className="h-px bg-gradient-to-r from-sanpedro-gold/60 via-sanpedro-gold to-sanpedro-gold/60 shrink-0" />
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
               <div>
-                <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Nombre *</label>
-                <input
-                  type="text"
-                  value={form.ingredienteNombre}
+                <label className="block text-[12px] font-medium text-tinta-media mb-1">Nombre *</label>
+                <input type="text" value={form.ingredienteNombre}
                   onChange={e => setForm(f => ({ ...f, ingredienteNombre: e.target.value }))}
                   placeholder="Ej. Tomate"
-                  className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
+                  className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Unidad *</label>
-                <input
-                  type="text"
-                  value={form.ingredienteUnidad}
+                <label className="block text-[12px] font-medium text-tinta-media mb-1">Unidad *</label>
+                <input type="text" value={form.ingredienteUnidad}
                   onChange={e => setForm(f => ({ ...f, ingredienteUnidad: e.target.value }))}
                   placeholder="Ej. kg, L, unidad, porción"
-                  className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
+                  className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Stock actual</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.ingredienteStock}
+                  <label className="block text-[12px] font-medium text-tinta-media mb-1">Stock actual</label>
+                  <input type="number" step="0.01" min="0" value={form.ingredienteStock}
                     onChange={e => setForm(f => ({ ...f, ingredienteStock: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
+                    className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-sanpedro-wood uppercase tracking-widest mb-1">Stock mínimo</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.ingredienteStockMin}
+                  <label className="block text-[12px] font-medium text-tinta-media mb-1">Stock mínimo</label>
+                  <input type="number" step="0.01" min="0" value={form.ingredienteStockMin}
                     onChange={e => setForm(f => ({ ...f, ingredienteStockMin: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-sanpedro-gold/40 text-sm focus:outline-none focus:ring-2 focus:ring-sanpedro-gold"
+                    className="w-full h-[44px] px-3 rounded-lg border border-linea text-sm focus:outline-none focus:ring-1 focus:ring-oro"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-sanpedro-gold/10 flex justify-end gap-3 shrink-0">
-              <button
-                onClick={() => setModalAbierto(false)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-500 hover:text-sanpedro-wood transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={guardarForm}
-                disabled={guardandoForm}
-                className="bg-sanpedro-gold hover:bg-sanpedro-gold-dark text-sanpedro-dark font-bold text-sm px-5 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {guardandoForm ? 'Guardando…' : 'Guardar'}
-              </button>
+            <div className="px-6 py-4 border-t border-linea flex justify-end gap-3 shrink-0">
+              <Boton variante="secundario" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
+              <Boton variante="primario"   onClick={guardarForm} disabled={guardandoForm}>
+                {guardandoForm ? 'Guardando…' : 'Guardar ingrediente'}
+              </Boton>
             </div>
           </div>
         </div>
